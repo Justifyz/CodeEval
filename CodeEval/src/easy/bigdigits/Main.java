@@ -3,7 +3,7 @@ import java.io.*;
 import java.util.ArrayList;
 public class Main {
     public static void main (String[] args) throws IOException {
-        File file = new File("input.txt");
+        File file = new File(args[0]);
         BufferedReader buffer = new BufferedReader(new FileReader(file));
         String line;
         String[][] bigDigits = 
