@@ -14,9 +14,11 @@
 	<script src="<%=contextPath%>/js/jquery-1.11.1.min.js"></script>
 	<script src="<%=contextPath%>/js/jquery-ui-1.11.1.min.js"></script>
 	<script src="<%=contextPath%>/js/jquery.blockUI.js"></script>
+	 <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&signed_in=true"></script>
+	 <script src="http://google-maps-utility-library-v3.googlecode.com/svn/tags/markerwithlabel/1.0.1/src/markerwithlabel.js"></script>
 	<link rel="stylesheet" type="text/css" href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.10.3/themes/ui-lightness/jquery-ui.css" media="screen" />
 	<link rel="stylesheet" type="text/css" href="<%=contextPath%>/css/jgraph.css" media="screen" />
-
+	
 	<!-- Example code -->
 	<script type="text/javascript">
 	var applications = ${applicationsMessage};
@@ -37,19 +39,25 @@
 	var hostNames = ["pbcrl11b3"];
 	var appGroups = [];
 	var hostProcesses = [];
-	var memoryCapacity = [], numberOfProcessors = [], serverRole = [], serverMake = [], serverBuilding = [];
+	var memoryCapacity = [], numberOfProcessors = [], serverRole = [], serverMake = [], serverBuilding = [], serverAddress = [];
 	var contextPath = '<%=request.getContextPath()%>';
+	var markerMap = [];
 	$(document).ready(function() {
+		
+		
+		
 		var showFilter = false;
 		$('#filterToggle').hide();
-		$('#filterToggle').click(function() {
+		$('#filterToggle p').click(function() {
 			showFilter = !showFilter;
 			if(showFilter) {
+				//$('.graphZoom').animate({'float':'none','left':'20%','margin-left':'150px'});
 				$('#filterToggle').animate({'float':'none','left':'20%','margin-left':'-110px'});
 				$("#filter").animate({'width' : '20%'});
 				$("#graphContainer").animate({'left' : '20%','width':'80%'});	
 			}
 			else {
+				//$('.graphZoom').animate({'float':'none','left':'0%','margin-left':'100px'});
 				$('#filterToggle').animate({'float':'left','left':'0%','margin-left':'0px'});
 				$("#filter").animate({'width' : '0%'});
 				$("#graphContainer").animate({'left' : '0%','width':'100%'});	
@@ -79,189 +87,142 @@
 			$(this).addClass('hover');
 		});
 			
-		$('#filter').delegate('p .envgroup-filter','click',function() {
-			if($('#envgroup').hasClass('ui-icon-circle-plus')) {
-				$('#envgroup').removeClass('ui-icon-circle-plus');
-				$('#envgroup').addClass('ui-icon-circle-minus');
-				var appGroupName = $('#search').val();
-				var appGroupId = '';
-				$.each(appGroupsMessage, function(i, appGroup) {
-					if(appGroup.appGroupName == appGroupName) {
-						appGroupId = appGroup.appGroupId;
-					}
-				});
-				var dataVal = {
-						'appGroupId':appGroupId
-				};
-				$.ajax({
-					url:contextPath+"/app/users/getEnvGroupFilter",
-					type:"GET",
-					data: dataVal,
-					success:function(data) {
-						var json = $.parseJSON(data);
-						$.each(json.envgroups, function(i, envgroup) {
-							$('#envgroup-options').append('<li id="example"><a href="#" id="filterOptions">'+envgroup.envGroupName+'</a></li>');
-						});
-					},
-					error:function(msg) {
-						alert("ERROR: " + msg);
+		
+		$('#filter').delegate('.envgroup-filter .header-icon','click',function() {
+			if($('.envgroup-filter > div').hasClass('open')) {
+				$('.envgroup-filter > div').removeClass('open');
+				$('#envgroup-options > li').slideDown("slow");
+				$('#envgroup-options li').each(function() {
+					var count = $(this).children('.count').text().replace(' ','');
+					if(count == '(0)') {
+						$(this).hide();
 					}
 				});
 			}
 			else {
-				$('#envgroup').removeClass('ui-icon-circle-minus');
-				$('#envgroup').addClass('ui-icon-circle-plus');
-				$('#envgroup-options > li').remove();
+				$('.envgroup-filter > div').addClass('open');
+				$('#envgroup-options > li').slideUp("slow");
 			}
 		});
 		
-		$('#filter').delegate('p .environment-filter','click',function() {
-			if($('#environment').hasClass('ui-icon-circle-plus')) {
-				$('#environment').removeClass('ui-icon-circle-plus');
-				$('#environment').addClass('ui-icon-circle-minus');
-				var applicationId = $('#search').val();
-				var dataVal = {
-						'applicationId':applicationId
-				};
-				$.ajax({
-					url:contextPath+"/app/users/getEnvFilter",
-					type:"GET",
-					data: dataVal,
-					success:function(data) {
-						var json = $.parseJSON(data);
-						$.each(json.environments, function(i, environment) {
-							$('#environment-options').append('<li id="example"><a href="#" id="filterOptions">'+environment.environmentName+'</a></li>');
-						});
-					},
-					error:function(msg) {
-						alert("ERROR: " + msg);
+		
+		$('#filter').delegate('.environment-filter .header-icon','click',function() {
+			if($('#icon').hasClass('open')) {
+				$('#icon').removeClass('open');
+				$('#environment-options > li').slideDown("slow");
+				$('#environment-options li').each(function() {
+					var count = $(this).children('.count').text().replace(' ','');
+					if(count == '(0)') {
+						$(this).hide();
 					}
 				});
 			}
 			else {
-				$('#environment').removeClass('ui-icon-circle-minus');
-				$('#environment').addClass('ui-icon-circle-plus');
-				$('#environment-options > li').remove();
+				$('#icon').addClass('open');
+				$('#environment-options > li').slideUp("slow");
 			}
 		});
 		
-		$('#filter').delegate('p .applicationLob-filter','click',function() {
-			var duplicates = [];
-			if($('#applicationLob').hasClass('ui-icon-circle-plus')) {
-				$('#applicationLob').removeClass('ui-icon-circle-plus');
-				$('#applicationLob').addClass('ui-icon-circle-minus');
-				for(var i = 0; i < applicationLobs.length; i++) {
-					var appLob = applicationLobs[i];
-					if(duplicates.indexOf(appLob) < 0) {
-						$('#applicationLob-options').append('<li id="example"><a href="#" id="filterOptions">'+appLob+'</a><span></span></li>');			
-						duplicates.push(appLob);
+		$('#filter').delegate('.applicationLob-filter .header-icon','click',function() {
+			if($('.applicationLob-filter > div').hasClass('open')) {
+				$('.applicationLob-filter > div').removeClass('open');
+				$('#applicationLob-options > li').slideDown("slow");
+				$('#applicationLob-options li').each(function() {
+					var count = $(this).children('.count').text().replace(' ','');
+					if(count == '(0)') {
+						$(this).hide();
 					}
-				}
+				});
 			}
 			else {
-				$('#applicationLob').removeClass('ui-icon-circle-minus');
-				$('#applicationLob').addClass('ui-icon-circle-plus');
-				$('#applicationLob-options > li').remove();
+				$('.applicationLob-filter > div').addClass('open');
+				$('#applicationLob-options > li').slideUp("slow");
 			} 
 		});
 		
-		$('#filter').delegate('p .states-filter','click',function() {
-			var duplicates = [];
-			if($('#states').hasClass('ui-icon-circle-plus')) {
-				$('#states').removeClass('ui-icon-circle-plus');
-				$('#states').addClass('ui-icon-circle-minus');
-				for(var i = 0; i < states.length; i++) {
-					var state = states[i];
-					if(duplicates.indexOf(state) < 0) {
-						$('#states-options').append('<li id="example"><a href="#" id="filterOptions">'+state+'</a><span></span></li>');			
-						duplicates.push(appLob);
+		$('#filter').delegate('.states-filter .header-icon','click',function() {
+			if($('.states-filter > div').hasClass('open')) {
+				$('.states-filter > div').removeClass('open');
+				$('#states-options > li').slideDown("slow");
+				$('#states-options li').each(function() {
+					var count = $(this).children('.count').text().replace(' ','');
+					if(count == '(0)') {
+						$(this).hide();
 					}
-				}
+				});
 			}
 			else {
-				$('#states').removeClass('ui-icon-circle-minus');
-				$('#states').addClass('ui-icon-circle-plus');
-				$('#states-options > li').remove();
+				$('.states-filter > div').addClass('open');
+				$('#states-options > li').slideUp("slow");
 			} 
 		});
 		
-		$('#filter').delegate('p .applicationDevelopedBy-filter','click',function() {
-			var duplicates = [];
-			if($('#applicationDevelopedBy').hasClass('ui-icon-circle-plus')) {
-				$('#applicationDevelopedBy').removeClass('ui-icon-circle-plus');
-				$('#applicationDevelopedBy').addClass('ui-icon-circle-minus');
-				for(var i = 0; i < applicationDevelopedBy.length; i++) {
-					var appDevelopedBy = applicationDevelopedBy[i];
-					if(duplicates.indexOf(state) < 0) {
-						$('#applicationDevelopedBy-options').append('<li id="example"><a href="#" id="filterOptions">'+appDevelopedBy+'</a><span></span></li>');			
-						duplicates.push(appLob);
+		$('#filter').delegate('.applicationDevelopedBy-filter .header-icon','click',function() {
+			if($('.applicationDevelopedBy-filter > div').hasClass('open')) {
+				$('.applicationDevelopedBy-filter > div').removeClass('open');
+				$('#applicationDevelopedBy-options > li').slideDown("slow");
+				$('#applicationDevelopedBy-options li').each(function() {
+					var count = $(this).children('.count').text().replace(' ','');
+					if(count == '(0)') {
+						$(this).hide();
 					}
-				}
+				});
 			}
 			else {
-				$('#applicationDevelopedBy').removeClass('ui-icon-circle-minus');
-				$('#applicationDevelopedBy').addClass('ui-icon-circle-plus');
-				$('#applicationDevelopedBy-options > li').remove();
+				$('.applicationDevelopedBy-filter > div').addClass('open');
+				$('#applicationDevelopedBy-options > li').slideUp("slow");
 			} 
 		});
 		
-		$('#filter').delegate('p .investmentStrategys-filter','click',function() {
-			var duplicates = [];
-			if($('#investmentStrategys').hasClass('ui-icon-circle-plus')) {
-				$('#investmentStrategys').removeClass('ui-icon-circle-plus');
-				$('#investmentStrategys').addClass('ui-icon-circle-minus');
-				for(var i = 0; i < investmentStrategys.length; i++) {
-					var investmentStrategy = investmentStrategys[i];
-					if(duplicates.indexOf(investmentStrategy) < 0) {
-						$('#investmentStrategys-options').append('<li id="example"><a href="#" id="filterOptions">'+investmentStrategy+'</a><span></span></li>');			
-						duplicates.push(investmentStrategy);
+		$('#filter').delegate('.investmentStrategys-filter  .header-icon','click',function() {
+			if($('.investmentStrategys-filter > div').hasClass('open')) {
+				$('.investmentStrategys-filter > div').removeClass('open');
+				$('#investmentStrategys-options > li').slideDown("slow");
+				$('#investmentStrategys-options li').each(function() {
+					var count = $(this).children('.count').text().replace(' ','');
+					if(count == '(0)') {
+						$(this).hide();
 					}
-				}
+				});
+				
 			}
 			else {
-				$('#investmentStrategys').removeClass('ui-icon-circle-minus');
-				$('#investmentStrategys').addClass('ui-icon-circle-plus');
-				$('#investmentStrategys-options > li').remove();
+				$('.investmentStrategys-filter > div').addClass('open');
+				$('#investmentStrategys-options > li').slideUp("slow");
 			} 
 		});
 		
-		$('#filter').delegate('p .cafCritical-filter','click',function() {
-			var duplicates = [];
-			if($('#cafCritical').hasClass('ui-icon-circle-plus')) {
-				$('#cafCritical').removeClass('ui-icon-circle-plus');
-				$('#cafCritical').addClass('ui-icon-circle-minus');
-				for(var i = 0; i < cafCriticals.length; i++) {
-					var cafCritical = cafCriticals[i];
-					if(duplicates.indexOf(cafCritical) < 0) {
-						$('#cafCritical-options').append('<li id="example"><a href="#" id="filterOptions">'+cafCritical+'</a><span></span></li>');			
-						duplicates.push(cafCritical);
+		$('#filter').delegate('.cafCritical-filter .header-icon','click',function() {
+			if($('.cafCritical-filter > div').hasClass('open')) {
+				$('.cafCritical-filter > div').removeClass('open');
+				$('#cafCritical-options > li').slideDown("slow");
+				$('#cafCritical-options li').each(function() {
+					var count = $(this).children('.count').text().replace(' ','');
+					if(count == '(0)') {
+						$(this).hide();
 					}
-				}
+				});
 			}
 			else {
-				$('#cafCritical').removeClass('ui-icon-circle-minus');
-				$('#cafCritical').addClass('ui-icon-circle-plus');
-				$('#cafCritical-options > li').remove();
+				$('.cafCritical-filter > div').addClass('open');
+				$('#cafCritical-options > li').slideUp("slow");
 			} 
 		});
 		
-		$('#filter').delegate('p .technologyGroupOwners-filter','click',function() {
-			var duplicates = [];
-			if($('#technologyGroupOwners').hasClass('ui-icon-circle-plus')) {
-				$('#technologyGroupOwners').removeClass('ui-icon-circle-plus');
-				$('#technologyGroupOwners').addClass('ui-icon-circle-minus');
-				for(var i = 0; i < technologyGroupOwners.length; i++) {
-					var technologyGroupOwner = technologyGroupOwners[i];
-					if(duplicates.indexOf(technologyGroupOwner) < 0) {
-						$('#technologyGroupOwners-options').append('<li id="example"><a href="#" id="filterOptions">'+technologyGroupOwner+'</a><span></span></li>');			
-						duplicates.push(technologyGroupOwner);
+		$('#filter').delegate('.technologyGroupOwners-filter .header-icon','click',function() {
+			if($('.technologyGroupOwners-filter > div').hasClass('open')) {
+				$('.technologyGroupOwners-filter > div').removeClass('open');
+				$('#technologyGroupOwners-options > li').slideDown("slow");
+				$('#technologyGroupOwners-options li').each(function() {
+					var count = $(this).children('.count').text().replace(' ','');
+					if(count == '(0)') {
+						$(this).hide();
 					}
-				}
+				});
 			}
 			else {
-				$('#technologyGroupOwners').removeClass('ui-icon-circle-minus');
-				$('#technologyGroupOwners').addClass('ui-icon-circle-plus');
-				$('#technologyGroupOwners-options > li').remove();
+				$('.technologyGroupOwners-filter > div').addClass('open');
+				$('#technologyGroupOwners-options > li').slideUp("slow");
 			} 
 		});
 		
@@ -410,6 +371,7 @@
 		$("#graphType").append('<option disabled selected>Select Type</option>');
 		$("#graphType").append('<option>Interface</option>');
 		$("#graphType").append('<option>Infra</option>');
+		$("#graphType").append('<option>Data Center</option>');
 			
 		$("#l1ProcessList > option").remove();
 		$("#l1ProcessList").append('<option disabled selected>Select Process</option>');
@@ -555,10 +517,15 @@
 					source: hostNames
 				});
 			}
+			
+			$('.ui-menu .ui-menu-item').click(function() {
+				$('#submit').click();
+			});
 		});
 		$('#submit').click(function() {
 			$('#graphContainer').empty();
-			$('#filter > p').remove();
+			$('#filter > .filter').remove();
+			$('.filter-section-header, .selected-filter-section, .filter-section-footer').remove();
 			var type = $.trim($('#type').val());
 			var graphType = $.trim($('#graphType').val());
 			fromRows.length = 0;
@@ -579,20 +546,20 @@
 				var appGroupId;
 				$('#filterToggle').show();
 				loadingBlockMask('#graphContainer','Loading graph. Please wait.');
-				$('#filter').append('<p><span id="envgroup" class="ui-icon ui-icon-circle-plus envgroup-filter"></span>'
-			    		+'<ui id="envgroup-options"><font size="+1">Environment Group</font></ui></p>');
-				$('#filter').append('<p><span id="applicationLob" class="ui-icon ui-icon-circle-plus applicationLob-filter"></span>'
-			    		+'<ui id="applicationLob-options"><font size="+1">Application LOB</font></ui></p>');
-				$('#filter').append('<p><span id="investmentStrategys" class="ui-icon ui-icon-circle-plus investmentStrategys-filter"></span>'
-			    		+'<ui id="investmentStrategys-options"><font size="+1">Investment Strategy</font></ui></p>');
-				$('#filter').append('<p><span id="states" class="ui-icon ui-icon-circle-plus states-filter"></span>'
-			    		+'<ui id="states-options"><font size="+1">States</font></ui></p>');
-				$('#filter').append('<p><span id="applicationDevelopedBy" class="ui-icon ui-icon-circle-plus applicationDevelopedBy-filter"></span>'
-			    		+'<ui id="applicationDevelopedBy-options"><font size="+1">Application Developed By</font></ui></p>');
-				$('#filter').append('<p><span id="cafCritical" class="ui-icon ui-icon-circle-plus cafCritical-filter"></span>'
-			    		+'<ui id="cafCritical-options"><font size="+1">CAF Critical</font></ui></p>');
-				$('#filter').append('<p><span id="technologyGroupOwners" class="ui-icon ui-icon-circle-plus technologyGroupOwners-filter"></span>'
-			    		+'<ui id="technologyGroupOwners-options"><font size="+1">Technology Group Owner</font></ui></p>');
+				$('#filter').append('<div id="envgroup" class="envgroup-filter filter"><div id="icon" class="header-icon open"></div>'
+			    		+'<div class="filter-header">Environment Group</div><ul id="envgroup-options"></ul></div>');
+				$('#filter').append('<div id="applicationLob" class="applicationLob-filter filter"><div id="icon" class="header-icon open"></div>'
+			    		+'<div class="filter-header">Application LOB</div><ul id="applicationLob-options"></ul></div>');
+				$('#filter').append('<div id="investmentStrategys" class="investmentStrategys-filter filter"><div id="icon" class="header-icon open"></div>'
+			    		+'<div class="filter-header">Investment Strategy</div><ul id="investmentStrategys-options"></ul></div>');
+				$('#filter').append('<div id="states" class="states-filter filter"><div id="icon" class="header-icon open"></div>'
+			    		+'<div class="filter-header">State</div><ul id="states-options"></ul></div>');
+				$('#filter').append('<div id="applicationDevelopedBy" class="applicationDevelopedBy-filter filter"><div id="icon" class="header-icon open"></div>'
+			    		+'<div class="filter-header">Application Developed By</div><ul id="applicationDevelopedBy-options"></ul></div>');
+				$('#filter').append('<div id="cafCritical" class="cafCritical-filter filter"><div id="icon" class="header-icon open"></div>'
+			    		+'<div class="filter-header">CAF Critical</div><ul id="cafCritical-options"></ul></div>');
+				$('#filter').append('<div id="technologyGroupOwners" class="technologyGroupOwners-filter filter"><div id="icon" class="header-icon open"></div>'
+			    		+'<div class="filter-header">Technology Group Owner</div><ul id="technologyGroupOwners-options"></ul></div>');
 				$.each(appGroupsMessage, function(i, appGroup) {
 					if(appGroup.appGroupName == id) {
 						appGroupId = appGroup.appGroupId;
@@ -605,8 +572,9 @@
 				});
 				main2(document.getElementById('graphContainer'));
 			}
-			else if(type == "Application ID" && graphType == "Infra") {
-				$('#filterToggle').show();
+			else if(type == "Application ID" && graphType == "Data Center") {
+				$('#filterToggle').hide();
+			/*	$('#filterToggle').show();
 				$('#filter').append('<p><span id="memoryCapacityList" class="ui-icon ui-icon-circle-plus memoryCapacity-filter"></span>'
 			    		+'<ui id="memoryCapacity-options"><font size="+1">Memory Capacity</font></ui></p>');
 				$('#filter').append('<p><span id="numberOfProcessorsList" class="ui-icon ui-icon-circle-plus numberOfProcessors-filter"></span>'
@@ -616,27 +584,27 @@
 				$('#filter').append('<p><span id="serverMakeList" class="ui-icon ui-icon-circle-plus serverMake-filter"></span>'
 			    		+'<ui id="serverMake-options"><font size="+1">Server Make</font></ui></p>');
 				$('#filter').append('<p><span id="serverBuildingList" class="ui-icon ui-icon-circle-plus serverBuilding-filter"></span>'
-			    		+'<ui id="serverBuilding-options"><font size="+1">Server Building</font></ui></p>');
+			    		+'<ui id="serverBuilding-options"><font size="+1">Server Building</font></ui></p>'); */
 				loadingBlockMask('#graphContainer','Loading graph. Please wait.');
 				serverHardware(document.getElementById('graphContainer'));
 			}
-			else if(type == "Application ID") {
+			else if(type == "Application ID" && graphType == "Interface") {
 				$('#filterToggle').show();
 				loadingBlockMask('#graphContainer','Loading graph. Please wait.');
-				$('#filter').append('<p><span id="environment" class="ui-icon ui-icon-circle-plus environment-filter"></span>'
-			    		+'<ui id="environment-options"><font size="+1">Environment</font></ui></p>');
-				$('#filter').append('<p><span id="applicationLob" class="ui-icon ui-icon-circle-plus applicationLob-filter"></span>'
-			    		+'<ui id="applicationLob-options"><font size="+1">Application LOB</font></ui></p>');
-				$('#filter').append('<p><span id="investmentStrategys" class="ui-icon ui-icon-circle-plus investmentStrategys-filter"></span>'
-			    		+'<ui id="investmentStrategys-options"><font size="+1">Investment Strategy</font></ui></p>');
-				$('#filter').append('<p><span id="states" class="ui-icon ui-icon-circle-plus states-filter"></span>'
-			    		+'<ui id="states-options"><font size="+1">States</font></ui></p>');
-				$('#filter').append('<p><span id="applicationDevelopedBy" class="ui-icon ui-icon-circle-plus applicationDevelopedBy-filter"></span>'
-			    		+'<ui id="applicationDevelopedBy-options"><font size="+1">Application Developed By</font></ui></p>');
-				$('#filter').append('<p><span id="cafCritical" class="ui-icon ui-icon-circle-plus cafCritical-filter"></span>'
-			    		+'<ui id="cafCritical-options"><font size="+1">CAF Critical</font></ui></p>');
-				$('#filter').append('<p><span id="technologyGroupOwners" class="ui-icon ui-icon-circle-plus technologyGroupOwners-filter"></span>'
-			    		+'<ui id="technologyGroupOwners-options"><font size="+1">Technology Group Owner</font></ui></p>');
+				$('#filter').append('<div id="environment" class="environment-filter filter"><div id="icon" class="header-icon open"></div>'
+			    		+'<div class="filter-header">Environment</div><ul id="environment-options"></ul></div>');
+				$('#filter').append('<div id="applicationLob" class="applicationLob-filter filter"><div id="icon" class="header-icon open"></div>'
+			    		+'<div class="filter-header">Application LOB</div><ul id="applicationLob-options"></ul></div>');
+				$('#filter').append('<div id="investmentStrategys" class="investmentStrategys-filter filter"><div id="icon" class="header-icon open"></div>'
+			    		+'<div class="filter-header">Investment Strategy</div><ul id="investmentStrategys-options"></ul></div>');
+				$('#filter').append('<div id="states" class="states-filter filter"><div id="icon" class="header-icon open"></div>'
+			    		+'<div class="filter-header">State</div><ul id="states-options"></ul></div>');
+				$('#filter').append('<div id="applicationDevelopedBy" class="applicationDevelopedBy-filter filter"><div id="icon" class="header-icon open"></div>'
+			    		+'<div class="filter-header">Application Developed By</div><ul id="applicationDevelopedBy-options"></ul></div>');
+				$('#filter').append('<div id="cafCritical" class="cafCritical-filter filter"><div id="icon" class="header-icon open"></div>'
+			    		+'<div class="filter-header">CAF Critical</div><ul id="cafCritical-options"></ul></div>');
+				$('#filter').append('<div id="technologyGroupOwners" class="technologyGroupOwners-filter filter"><div id="icon" class="header-icon open"></div>'
+			    		+'<div class="filter-header">Technology Group Owner</div><ul id="technologyGroupOwners-options"></ul></div>');
 				var dataVal = {
 					'id':id,
 					'direction': type == "Application Name"?'FromName':'FromId'
@@ -703,6 +671,10 @@
 					main3(document.getElementById('graphContainer'),hostName,children);
 				});
 			}
+			else if(graphType == "Infra") {
+				$('#filterToggle').show();
+				infra(document.getElementById('graphContainer'));
+			}
 		});
 		
 		
@@ -717,6 +689,9 @@
 		
 		$('#dialogProcessInfo').hide();
 		eventsForProcessInfo();
+		
+		$('#dialogServerInfo').hide();
+		eventsForServerInfo();
 		
 	});
 	
@@ -770,7 +745,7 @@
 				var h = 80;
 				var x = (c.scrollLeft + c.clientWidth / 2) / s - w / 2;
 				var y = ((c.scrollTop + c.clientHeight / 2) / s - h / 2) - 100;
-				var vertices = [];
+				var vertices = [], verticesChanged = [], environmentVertices = [], toVertices = [], fromVertices = [];
 				var map = new Object();
 				var idMap = new Object();
 				var edgeMap = [];
@@ -811,14 +786,17 @@
 							}
 						});
 						if(parentNode == null) {
-							parentNode = graph.insertVertex(parent, null, fromName, x, y, w, h, 'whiteSpace=wrap;');
+							parentNode = graph.insertVertex(parent, null, fromName, x, y, w, h, 'whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');
+							fromVertices.push(parentNode);
+							toVertices.push(parentNode);
 							vertices.push(parentNode);
 							idMap[parentName] = parentId;
 							appNameMap[parentNode.id] = parentNode.value;
 						}
 						//v1 = graph.insertVertex(parent, null, fromName, x, y, w, h, 'whiteSpace=wrap;');
 						//parentNode = parent;
-						v2 = graph.insertVertex(parent, null, toName, 0, 0, w, h, 'whiteSpace=wrap;');
+						v2 = graph.insertVertex(parent, null, toName, 0, 0, w, h, 'whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');
+						fromVertices.push(v2);
 						appNameMap[v2.id] = v2.value;
 						map[toName] = v2;
 						e1 = graph.insertEdge(parent, null, edgeName, parentNode, v2, 'whiteSpace=wrap;');
@@ -853,12 +831,15 @@
 						//    }
 						//}
 						if(!hasKey) {
-							v1 = graph.insertVertex(parent, null, fromName, 0, 0, w, h, 'whiteSpace=wrap;');
+							v1 = graph.insertVertex(parent, null, fromName, 0, 0, w, h, 'whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');
+							toVertices.push(v1);
 							appNameMap[v1.id] = v1.value;
 							vertices.push(v1);
 						}
 						if(parentNode == null) {
-							parentNode = graph.insertVertex(parent, null, toName, x, y, w, h, 'whiteSpace=wrap;');
+							parentNode = graph.insertVertex(parent, null, toName, x, y, w, h, 'whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');
+							fromVertices.push(parentNode);
+							toVertices.push(parentNode);
 							vertices.push(parentNode);
 							idMap[parentNode.value] = parentId;
 							appNameMap[parentNode.id] = parentNode.value;
@@ -916,280 +897,921 @@
 						});
 					}
 					
-					$('#applicationLob-options').delegate('li','click',function() {
-						if($(this).children('span').hasClass('ui-icon ui-icon-check')) {
-							$(this).children('span').removeClass('ui-icon ui-icon-check');
-						}
-						else {
-							$(this).children('span').addClass('ui-icon ui-icon-check');
-						}
-						var appLob = $(this).text();
-						var verticesChanged = [];
-						for(var i = 0; i < vertices.length; i++) {
-							var vertex = vertices[i];
-							var id = idMap[vertices[i].value];
-							var appData = appDataMap[id];
-							$.each(appData,function(i, row) {
-								if(row.name == "ApplicationLOB" && row.value == appLob) {
-									verticesChanged.push(vertex);
-									graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;');
+					$('#filter').delegate('.filter li a','click',function() {
+						$('#filter .filter').each(function() {
+							if(!$(this).children('#icon').hasClass('open')) {
+								$(this).children('#icon').addClass('open');
+							}
+							var filterGroup = $(this).children('.filter-header').text();
+							if(filterGroup == "CAF Critical") {
+								filterGroup = filterGroup.replace(/ /g, '_');
+							}
+							else {
+								filterGroup = filterGroup.replace(/ /g, '');
+							}
+							($(this).children('ul').children('li')).each(function() {
+								var filterName = $(this).children('a').text();
+								var count = 0;
+								for(var i = 0; i < verticesChanged.length; i++) {
+									var id = idMap[verticesChanged[i].value];
+									var appData = appDataMap[id];
+									$.each(appData,function(i, row) {
+										if(filterGroup == "Environment") {
+											if(row.name == filterName) {
+													count++;										
+											}
+										}
+										else {
+											if(row.name == filterGroup) {
+												if(row.value == filterName ) {
+													count++;
+												}
+											}
+										}
+									});	
 								}
-							});								
+								
+								$(this).children('.count').text(" ("+count+")");
+								$(this).hide();
+								
+							});
+						});
+						
+					});
+					
+					$('#filter').undelegate('.selected-filter-section ul li .remove').delegate('.selected-filter-section ul li .remove','click',function() {
+						var itemName = $(this).next().text();
+						if(itemName == "Application LOB") {
+							$('#applicationLob').show();
 						}
+						else if(itemName == "Investment Strategy") {
+							$('#investmentStrategys').show();
+						}
+						else if(itemName == "State") {
+							$('#states').show();
+						}
+						else if(itemName == "Application Developed By") {
+							$('#applicationDevelopedBy').show();
+						}
+						else if(itemName == "CAF Critical") {
+							$('#cafCritical').show();
+						}
+						else if(itemName == "Technology Group Owner") {
+							$('#technologyGroupOwners').show();
+						}
+						else if(itemName == "Environment") {
+							$('#environment').show();
+						}
+						$(this).parent().remove();
+						if($('.selected-filter-section ul').children('li').length == 0) {
+							$('.filter-section-header, .selected-filter-section, .filter-section-footer').remove();
+						}
+						verticesChanged.length = 0;
+						for(var i = 0; i < vertices.length; i++) {
+								var vertex = vertices[i];
+								var appName = appNameMap[vertex.id];
+								graph.getModel().setStyle(vertex,'whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');				
+								graph.labelChanged(vertex,appName);					
+						}	
+						$('.selected-filter-section ul li').each(function() {
+							var filterGroup = $(this).find('.filter-item-name').text();
+							var filterName = $(this).find('.filter-item-label').text().substring(2,$(this).find('.filter-item-label').text().length);
+							if(filterGroup == "Environment") {
+								if(verticesChanged.length == 0) {
+									for(var i = 0; i < vertices.length; i++) {
+										var vertex = vertices[i];
+										var id = idMap[vertices[i].value];
+										var appData = appDataMap[id];
+										$.each(appData,function(i, row) {
+											if(row.name == filterName) {
+												//if(row.value == filterName) {
+													verticesChanged.push(vertex);
+													graph.labelChanged(vertex,row.value);
+													idMap[row.value] = id;
+													graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');
+												//}
+											}
+										});								
+									}
+								}
+								else {
+									var found;
+									for(var i = 0; i < vertices.length; i++) {
+										found = false;
+										var vertex = vertices[i];
+										var id = idMap[vertices[i].value];
+										var appData = appDataMap[id];
+										$.each(appData,function(i, row) {
+											if(row.name == filterName) {
+												found = true;
+												graph.labelChanged(vertex,row.value);
+												idMap[row.value] = id;
+											}
+										});
+										if(!found) {
+											var index = verticesChanged.indexOf(vertex);
+											if(index > -1) {
+												verticesChanged.splice(index,1);		
+											}
+										}
+									}
+								}
+							}
+							else if(filterGroup == "CAF Critical") {
+								filterGroup = filterGroup.replace(/ /g, '_');
+							}
+							else {
+								filterGroup = filterGroup.replace(/ /g, '');
+							}
+							if(verticesChanged.length == 0) {
+								for(var i = 0; i < vertices.length; i++) {
+									var vertex = vertices[i];
+									var id = idMap[vertices[i].value];
+									var appData = appDataMap[id];
+									$.each(appData,function(i, row) {
+										if(row.name == filterGroup) {
+											if(row.value == filterName ) {
+												verticesChanged.push(vertex);
+												graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');
+											}
+										}
+									});								
+								}
+							}
+							else {
+								for(var i = 0; i < vertices.length; i++) {
+									var vertex = vertices[i];
+									var id = idMap[vertices[i].value];
+									var appData = appDataMap[id];
+									$.each(appData,function(i, row) {
+										if(row.name == filterGroup) {
+											if(row.value == filterName ) {
+												// Do nothing. Already highlighted
+											}
+											else {
+												var index = verticesChanged.indexOf(vertex);
+												if(index > -1) {
+													verticesChanged.splice(index,1);		
+												}
+											}
+										}
+									});								
+								}
+							}
+							
+						});
 						for(var i = 0; i < vertices.length; i++) {
 							var vertex = vertices[i];
 							if(verticesChanged.indexOf(vertex) < 0) {
 								var appName = appNameMap[vertex.id];
-								graph.getModel().setStyle(vertex,'whiteSpace=wrap;');				
+								graph.getModel().setStyle(vertex,'whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');				
+								graph.labelChanged(vertex,appName);
+							}					
+						}
+						$('#filter .filter').each(function() {
+							if(!$(this).children('#icon').hasClass('open')) {
+								$(this).children('#icon').addClass('open');
+							}
+							var filterGroup = $(this).children('.filter-header').text();
+							if(filterGroup == "CAF Critical") {
+								filterGroup = filterGroup.replace(/ /g, '_');
+							}
+							else {
+								filterGroup = filterGroup.replace(/ /g, '');
+							}
+							($(this).children('ul').children('li')).each(function() {
+								var filterName = $(this).children('a').text();
+								var count = 0;
+								if(verticesChanged.length == 0) {
+									for(var i = 0; i < vertices.length; i++) {
+										var id = idMap[vertices[i].value];
+										var appData = appDataMap[id];
+										$.each(appData,function(i, row) {
+											if(filterGroup == "Environment") {
+												if(row.name == filterName) {
+														count++;										
+												}
+											}
+											else {
+												if(row.name == filterGroup) {
+													if(row.value == filterName ) {
+														count++;
+													}
+												}
+											}
+										});	
+									}
+								}
+								else {
+									for(var i = 0; i < verticesChanged.length; i++) {
+										var id = idMap[verticesChanged[i].value];
+										var appData = appDataMap[id];
+										$.each(appData,function(i, row) {
+											if(filterGroup == "Environment") {
+												if(row.name == filterName) {
+														count++;										
+												}
+											}
+											else {
+												if(row.name == filterGroup) {
+													if(row.value == filterName ) {
+														count++;
+													}
+												}
+											}
+										});	
+									}	
+								}
+								
+								$(this).children('.count').text(" ("+count+")");
+								$(this).hide();
+								
+							});
+						});
+					});
+					
+					var duplicates = [];
+					
+					// Get Application LOB options
+					for(var i = 0; i < applicationLobs.length; i++) {
+						var appLob = applicationLobs[i];
+						if(duplicates.indexOf(appLob) < 0) {
+							var count = 0;
+							for(var j = 0; j < vertices.length; j++) {
+								var vertex = vertices[j];
+								var id = idMap[vertices[j].value];
+								var appData = appDataMap[id];
+								$.each(appData,function(k, row) {
+									if(row.name == "ApplicationLOB" && row.value == appLob) {
+										count++;
+									}
+								});								
+							}
+							$('<li class="filter-item"><a href="javascript:void(0)" id="filterOptions" class="filter-item-label">'+appLob+'</a><span class="count"> ('+count+')</span></li>').hide().prependTo('#applicationLob-options').slideDown("slow");		
+							duplicates.push(appLob);
+						}
+					}
+					$('#applicationLob-options > li').hide();
+					duplicates.length = 0;
+					
+					
+					$('#applicationLob-options').delegate('li a','click',function() {
+						var appLob = $(this).text();
+						if($('.filter-section-header').length == 0) {
+							$('<div class="filter-section-header section applied">Applied Filters</div><div class="selected-filter-section section">'
+									+ '<ul></ul></div><div class=filter-section-footer></div>').insertAfter('.filter-title');
+						}		
+						$('.selected-filter-section ul').append('<li class="filter-item"><span class="remove">X</span>'
+							+ '<span class="filter-item-name">Application LOB</span><span class="filter-item-label">: '+appLob+'</span></li>');
+						
+						$('.applicationLob-filter > div').addClass('open');
+						$('#applicationLob-options > li').slideUp("slow");
+						$('#applicationLob').hide();
+						
+						
+						var filterGroup = $('.selected-filter-section ul li:last-child').find('.filter-item-name').text().replace(/ /g, '');
+						var filterName = $('.selected-filter-section ul li:last-child').find('.filter-item-label').text().substring(2,$('.selected-filter-section ul li:last-child').find('.filter-item-label').text().length);
+						if(verticesChanged.length == 0) {
+							for(var i = 0; i < vertices.length; i++) {
+								var vertex = vertices[i];
+								var id = idMap[vertices[i].value];
+								var appData = appDataMap[id];
+								$.each(appData,function(i, row) {
+									if(row.name == filterGroup) {
+										if(row.value == filterName ) {
+											verticesChanged.push(vertex);
+											graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');
+										}
+									}
+								});								
+							}
+						}
+						else {
+							for(var i = 0; i < vertices.length; i++) {
+								var vertex = vertices[i];
+								var id = idMap[vertices[i].value];
+								var appData = appDataMap[id];
+								$.each(appData,function(i, row) {
+									if(row.name == filterGroup) {
+										if(row.value == filterName ) {
+											// Do nothing. Already highlighted
+										}
+										else {
+											var index = verticesChanged.indexOf(vertex);
+											if(index > -1) {
+												verticesChanged.splice(index,1);		
+											}
+										}
+									}
+								});								
+							}
+						}
+												
+						for(var i = 0; i < vertices.length; i++) {
+							var vertex = vertices[i];
+							if(verticesChanged.indexOf(vertex) < 0) {
+								var appName = appNameMap[vertex.id];
+								graph.getModel().setStyle(vertex,'whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');				
 								graph.labelChanged(vertex,appName);
 							}					
 						}	
 					});
 					
+					// Gets environment li options
+					var applicationId = $('#search').val();
+					var dataVal = {
+							'applicationId':applicationId
+					};
+					$.ajax({
+						url:contextPath+"/app/users/getEnvFilter",
+						type:"GET",
+						data: dataVal,
+						success:function(data) {
+							var json = $.parseJSON(data);
+							$.each(json.environments, function(i, environment) {
+								var count = 0;
+								var envName = environment.environmentName;
+								var toAppId = '';
+								for(var i = 0; i < fromRows.length; i++) {
+									$.each(fromRows[i],function(i, row) {
+										if(row.name == "ToId") {
+											toAppId = row.value;
+										}
+									});
+									var dataVal = {
+											'fromEnvName':envName,
+											'toAppId':toAppId
+									};
+									$.ajax({
+										url:contextPath+"/app/users/getToEnvIfFilter",
+										type:"GET",
+										data: dataVal,
+										async:false,
+										success:function(data) {
+											var json = $.parseJSON(data);
+											if(json.toEnvName != null) {
+												var toEnvName = json.toEnvName;
+												for(var i = 0; i < vertices.length; i++) {
+													var vertex = vertices[i];
+													if(idMap[vertex.value] == toAppId) {
+														var obj = {
+															'name':envName,
+															'value':toEnvName
+														};
+														appDataMap[toAppId].push(obj);
+														count++;
+													}
+												}
+											}							
+										},
+										error:function(msg) {
+											alert("ERROR: " + msg);
+										}
+									});
+								}
+								var fromAppId = '';
+								for(var i = 0; i < toRows.length; i++) {
+									$.each(toRows[i],function(i, row) {
+										if(row.name == "FromId") {
+											fromAppId = row.value;
+										}
+									});
+									var dataVal = {
+											'toEnvName':envName,
+											'fromAppId':fromAppId
+									};
+									$.ajax({
+										url:contextPath+"/app/users/getFromEnvIfFilter",
+										type:"GET",
+										data: dataVal,
+										async:false,
+										success:function(data) {
+											var json = $.parseJSON(data);
+											if(json.fromEnvName != null) {
+												var fromEnvName = json.fromEnvName;
+												for(var i = 0; i < vertices.length; i++) {
+													var vertex = vertices[i];
+													if(idMap[vertex.value] == fromAppId) {
+														var obj = {
+															'name':envName,
+															'value':fromEnvName
+														};
+														appDataMap[fromAppId].push(obj);
+														count++;
+													}
+												}
+											}				
+										},
+										error:function(msg) {
+											alert("ERROR: " + msg);
+										}
+									});
+								}
+								$('<li class="filter-item"><a href="javascript:void(0)" id="filterOptions" class="filter-item-label">'+environment.environmentName+'</a><span class="count"> ('+count+')</span</li>').hide().prependTo('#environment-options').slideDown("slow");			
+							});
+							$('#environment-options > li').hide();
+						},
+						error:function(msg) {
+							alert("ERROR: " + msg);
+						}
+					});
+					
+					
 					// reset filter
 					$('#reset').click(function() {
+						verticesChanged.length = 0;
+						environmentVertices.length = 0;
 						for(var i = 0; i < vertices.length; i++) {
 							var vertex = vertices[i];
 							var id = vertex.id;
 							var appName = appNameMap[id];
-							graph.getModel().setStyle(vertex,'whiteSpace=wrap;');				
+							graph.getModel().setStyle(vertex,'whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');				
 							graph.labelChanged(vertex,appName);
 							
 						}
 					});
 					
-					$('#environment-options').delegate('li','click',function() {
-						var verticesChanged = [];
+					
+					$('#environment-options').delegate('li a','click',function() {
 						var envName = $(this).text();
-						var toAppId = '';
-						for(var i = 0; i < fromRows.length; i++) {
-							$.each(fromRows[i],function(i, row) {
-								if(row.name == "ToId") {
-									toAppId = row.value;
-								}
-							});
-							var dataVal = {
-									'fromEnvName':envName,
-									'toAppId':toAppId
-							};
-							$.ajax({
-								url:contextPath+"/app/users/getToEnvIfFilter",
-								type:"GET",
-								data: dataVal,
-								async:false,
-								success:function(data) {
-									var json = $.parseJSON(data);
-									if(json.toEnvName != null) {
-										var toEnvName = json.toEnvName;
-										for(var i = 0; i < vertices.length; i++) {
-											var vertex = vertices[i];
-											if(idMap[vertex.value] == toAppId) {
-												verticesChanged.push(vertex)
-												//filterMap[environment.environmentName] = vertex.value;
-												graph.labelChanged(vertex,toEnvName);
-												idMap[toEnvName] = toAppId;
-												graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;');
-											}
-										}
-									}							
-								},
-								error:function(msg) {
-									alert("ERROR: " + msg);
-								}
-							});
+						if($('.filter-section-header').length == 0) {
+							$('<div class="filter-section-header section applied">Applied Filters</div><div class="selected-filter-section section">'
+									+ '<ul></ul></div><div class=filter-section-footer></div>').insertAfter('.filter-title');
+						}		
+						$('.selected-filter-section ul').append('<li class="filter-item"><span class="remove">X</span>'
+							+ '<span class="filter-item-name">Environment</span><span class="filter-item-label">: '+envName+'</span></li>');
+						
+						$('.environment-filter > div').addClass('open');
+						$('#environment-options > li').slideUp("slow");
+						$('#environment').hide();
+						
+						var filterGroup = $('.selected-filter-section ul li:last-child').find('.filter-item-name').text().replace(/ /g, '');
+						var filterName = $('.selected-filter-section ul li:last-child').find('.filter-item-label').text().substring(2,$('.selected-filter-section ul li:last-child').find('.filter-item-label').text().length);
+						
+						if(verticesChanged.length == 0) {
+							for(var i = 0; i < vertices.length; i++) {
+								var vertex = vertices[i];
+								var id = idMap[vertices[i].value];
+								var appData = appDataMap[id];
+								$.each(appData,function(i, row) {
+									if(row.name == filterName) {
+										//if(row.value == filterName) {
+											verticesChanged.push(vertex);
+											graph.labelChanged(vertex,row.value);
+											idMap[row.value] = id;
+											graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');
+										//}
+									}
+								});								
+							}
 						}
-						var fromAppId = '';
-						for(var i = 0; i < toRows.length; i++) {
-							$.each(toRows[i],function(i, row) {
-								if(row.name == "FromId") {
-									fromAppId = row.value;
+						else {
+							var found;
+							for(var i = 0; i < vertices.length; i++) {
+								found = false;
+								var vertex = vertices[i];
+								var id = idMap[vertices[i].value];
+								var appData = appDataMap[id];
+								$.each(appData,function(i, row) {
+									if(row.name == filterName) {
+										found = true;
+										graph.labelChanged(vertex,row.value);
+										idMap[row.value] = id;
+									}
+								});
+								if(!found) {
+									var index = verticesChanged.indexOf(vertex);
+									if(index > -1) {
+										verticesChanged.splice(index,1);		
+									}
 								}
-							});
-							var dataVal = {
-									'toEnvName':envName,
-									'fromAppId':fromAppId
-							};
-							$.ajax({
-								url:contextPath+"/app/users/getFromEnvIfFilter",
-								type:"GET",
-								data: dataVal,
-								async:false,
-								success:function(data) {
-									var json = $.parseJSON(data);
-									if(json.fromEnvName != null) {
-										var fromEnvName = json.fromEnvName;
-										for(var i = 0; i < vertices.length; i++) {
-											var vertex = vertices[i];
-											if(idMap[vertex.value] == fromAppId) {
-												verticesChanged.push(vertex)
-												//filterMap[environment.environmentName] = vertex.value;
-												graph.labelChanged(vertex,fromEnvName);
-												idMap[fromEnvName] = toAppId;
-												graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;');
-											}
-										}
-									}				
-								},
-								error:function(msg) {
-									alert("ERROR: " + msg);
-								}
-							});
-						}
+							}
+						}		
 						for(var i = 0; i < vertices.length; i++) {
 							var vertex = vertices[i];
 							if(verticesChanged.indexOf(vertex) < 0) {
 								var appName = appNameMap[vertex.id];
-								graph.getModel().setStyle(vertex,'whiteSpace=wrap;');				
+								graph.getModel().setStyle(vertex,'whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');				
 								graph.labelChanged(vertex,appName);
 							}					
 						}	
 					});
 					
-					$('#investmentStrategys-options').delegate('li','click',function() {
-						if($(this).children('span').hasClass('ui-icon ui-icon-check')) {
-							$(this).children('span').removeClass('ui-icon ui-icon-check');
+					// Get Investment Strategy options
+					for(var i = 0; i < investmentStrategys.length; i++) {
+						var count = 0;
+						var investmentStrategy = investmentStrategys[i];
+						if(duplicates.indexOf(investmentStrategy) < 0) {
+							for(var j = 0; j < vertices.length; j++) {
+								var vertex = vertices[j];
+								var id = idMap[vertices[j].value];
+								var appData = appDataMap[id];
+								$.each(appData,function(k, row) {
+									if(row.name == "InvestmentStrategy" && row.value == investmentStrategy) {
+										count++;
+									}
+								});								
+							}
+							$('<li class="filter-item"><a href="javascript:void(0)" id="filterOptions" class="filter-item-label">'+investmentStrategy+'</a><span class="count"> ('+count+')</span></li>').hide().prependTo('#investmentStrategys-options').slideDown("slow");		
+							duplicates.push(investmentStrategy);
 						}
-						else {
-							$(this).children('span').addClass('ui-icon ui-icon-check');
-						}
+					}
+					$('#investmentStrategys-options > li').hide();
+					duplicates.length = 0;
+					
+					$('#investmentStrategys-options').delegate('li a','click',function() {
 						var investmentStrategy = $(this).text();
-						var verticesChanged = [];
-						for(var i = 0; i < vertices.length; i++) {
-							var vertex = vertices[i];
-							var id = idMap[vertices[i].value];
-							var appData = appDataMap[id];
-							$.each(appData,function(i, row) {
-								if(row.name == "InvestmentStrategy" && row.value == investmentStrategy) {
-									verticesChanged.push(vertex);
-									graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;');
-								}
-							});								
+						if($('.filter-section-header').length == 0) {
+							$('<div class="filter-section-header section applied">Applied Filters</div><div class="selected-filter-section section">'
+									+ '<ul></ul></div><div class=filter-section-footer></div>').insertAfter('.filter-title');
+						}		
+						$('.selected-filter-section ul').append('<li class="filter-item"><span class="remove">X</span>'
+							+ '<span class="filter-item-name">Investment Strategy</span><span class="filter-item-label">: '+investmentStrategy+'</span></li>');
+						
+						$('.investmentStrategys-filter > div').addClass('open');
+						$('#investmentStrategys-options > li').slideUp("slow");
+						$('#investmentStrategys').hide();
+						
+						var filterGroup = $('.selected-filter-section ul li:last-child').find('.filter-item-name').text().replace(/ /g, '');
+						var filterName = $('.selected-filter-section ul li:last-child').find('.filter-item-label').text().substring(2,$('.selected-filter-section ul li:last-child').find('.filter-item-label').text().length);
+						if(verticesChanged.length == 0) {
+							for(var i = 0; i < vertices.length; i++) {
+								var vertex = vertices[i];
+								var id = idMap[vertices[i].value];
+								var appData = appDataMap[id];
+								$.each(appData,function(i, row) {
+									if(row.name == filterGroup) {
+										if(row.value == filterName ) {
+											verticesChanged.push(vertex);
+											graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');
+										}
+									}
+								});								
+							}
 						}
+						else {
+							for(var i = 0; i < vertices.length; i++) {
+								var vertex = vertices[i];
+								var id = idMap[vertices[i].value];
+								var appData = appDataMap[id];
+								$.each(appData,function(i, row) {
+									if(row.name == filterGroup) {
+										if(row.value == filterName ) {
+											// Do nothing. Already highlighted
+											//graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;');
+										}
+										else {
+											var index = verticesChanged.indexOf(vertex);
+											if(index > -1) {
+												verticesChanged.splice(index,1);		
+											}
+										}
+									}
+								});								
+							}
+						}
+						
 						for(var i = 0; i < vertices.length; i++) {
 							var vertex = vertices[i];
 							if(verticesChanged.indexOf(vertex) < 0) {
 								var appName = appNameMap[vertex.id];
-								graph.getModel().setStyle(vertex,'whiteSpace=wrap;');				
+								graph.getModel().setStyle(vertex,'whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');				
 								graph.labelChanged(vertex,appName);
 							}					
 						}	
 					});
 					
-					$('#applicationDevelopedBy-options').delegate('li','click',function() {
-						if($(this).children('span').hasClass('ui-icon ui-icon-check')) {
-							$(this).children('span').removeClass('ui-icon ui-icon-check');
+					// Application Developed By options
+					for(var i = 0; i < applicationDevelopedBy.length; i++) {
+						var appDevelopedBy = applicationDevelopedBy[i];
+						var count = 0;
+						if(duplicates.indexOf(appDevelopedBy) < 0) {
+							for(var j = 0; j < vertices.length; j++) {
+								var vertex = vertices[j];
+								var id = idMap[vertices[j].value];
+								var appData = appDataMap[id];
+								$.each(appData,function(k, row) {
+									if(row.name == "ApplicationDevelopedBy" && row.value == appDevelopedBy) {
+										count++;
+									}
+								});								
+							}
+							$('<li class="filter-item"><a href="javascript:void(0)" id="filterOptions" class="filter-item-label">'+appDevelopedBy+'</a><span class="count"> ('+count+')</span></li>').hide().prependTo('#applicationDevelopedBy-options').slideDown("slow");	
+							duplicates.push(appDevelopedBy);
 						}
-						else {
-							$(this).children('span').addClass('ui-icon ui-icon-check');
-						}
+					}
+					$('#applicationDevelopedBy-options > li').hide();
+					duplicates.length = 0;
+					
+					$('#applicationDevelopedBy-options').delegate('li a','click',function() {
 						var applicationDevelopedBy = $(this).text();
-						var verticesChanged = [];
-						for(var i = 0; i < vertices.length; i++) {
-							var vertex = vertices[i];
-							var id = idMap[vertices[i].value];
-							var appData = appDataMap[id];
-							$.each(appData,function(i, row) {
-								if(row.name == "ApplicationDevelopedBy" && row.value == applicationDevelopedBy) {
-									verticesChanged.push(vertex);
-									graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;');
-								}
-							});								
+						if($('.filter-section-header').length == 0) {
+							$('<div class="filter-section-header section applied">Applied Filters</div><div class="selected-filter-section section">'
+									+ '<ul></ul></div><div class=filter-section-footer></div>').insertAfter('.filter-title');
+						}		
+						$('.selected-filter-section ul').append('<li class="filter-item"><span class="remove">X</span>'
+							+ '<span class="filter-item-name">Application Developed By</span><span class="filter-item-label">: '+applicationDevelopedBy+'</span></li>');
+						
+						$('.applicationDevelopedBy-filter > div').addClass('open');
+						$('#applicationDevelopedBy-options > li').slideUp("slow");
+						$('#applicationDevelopedBy').hide();
+						
+						var filterGroup = $('.selected-filter-section ul li:last-child').find('.filter-item-name').text().replace(/ /g, '');
+						var filterName = $('.selected-filter-section ul li:last-child').find('.filter-item-label').text().substring(2,$('.selected-filter-section ul li:last-child').find('.filter-item-label').text().length);
+						if(verticesChanged.length == 0) {
+							for(var i = 0; i < vertices.length; i++) {
+								var vertex = vertices[i];
+								var id = idMap[vertices[i].value];
+								var appData = appDataMap[id];
+								$.each(appData,function(i, row) {
+									if(row.name == filterGroup) {
+										if(row.value == filterName ) {
+											verticesChanged.push(vertex);
+											graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');
+										}
+									}
+								});								
+							}
 						}
+						else {
+							for(var i = 0; i < vertices.length; i++) {
+								var vertex = vertices[i];
+								var id = idMap[vertices[i].value];
+								var appData = appDataMap[id];
+								$.each(appData,function(i, row) {
+									if(row.name == filterGroup) {
+										if(row.value == filterName ) {
+											// Do nothing. Already highlighted
+											//graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;');
+										}
+										else {
+											var index = verticesChanged.indexOf(vertex);
+											if(index > -1) {
+												verticesChanged.splice(index,1);		
+											}
+										}
+									}
+								});								
+							}
+						}
+						
 						for(var i = 0; i < vertices.length; i++) {
 							var vertex = vertices[i];
 							if(verticesChanged.indexOf(vertex) < 0) {
 								var appName = appNameMap[vertex.id];
-								graph.getModel().setStyle(vertex,'whiteSpace=wrap;');				
+								graph.getModel().setStyle(vertex,'whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');				
 								graph.labelChanged(vertex,appName);
 							}					
 						}	
 					});
 					
-					$('#states-options').delegate('li','click',function() {
-						if($(this).children('span').hasClass('ui-icon ui-icon-check')) {
-							$(this).children('span').removeClass('ui-icon ui-icon-check');
+					// States options
+					for(var i = 0; i < states.length; i++) {
+						var count = 0;
+						var state = states[i];
+						if(duplicates.indexOf(state) < 0) {
+							for(var j = 0; j < vertices.length; j++) {
+								var vertex = vertices[j];
+								var id = idMap[vertices[j].value];
+								var appData = appDataMap[id];
+								$.each(appData,function(k, row) {
+									if(row.name == "State" && row.value == state) {
+										count++;
+									}
+								});								
+							}
+							$('<li class="filter-item"><a href="javascript:void(0)" id="filterOptions" class="filter-item-label">'+state+'</a><span class="count"> ('+count+')</span></li>').hide().prependTo('#states-options').slideDown("slow");	
+							duplicates.push(state);
 						}
-						else {
-							$(this).children('span').addClass('ui-icon ui-icon-check');
-						}
+					}
+					$('#states-options > li').hide();
+					duplicates.length = 0;
+					
+					$('#states-options').delegate('li a','click',function() {
 						var state = $(this).text();
-						var verticesChanged = [];
-						for(var i = 0; i < vertices.length; i++) {
-							var vertex = vertices[i];
-							var id = idMap[vertices[i].value];
-							var appData = appDataMap[id];
-							$.each(appData,function(i, row) {
-								if(row.name == "State" && row.value == state) {
-									verticesChanged.push(vertex);
-									graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;');
-								}
-							});								
+						if($('.filter-section-header').length == 0) {
+							$('<div class="filter-section-header section applied">Applied Filters</div><div class="selected-filter-section section">'
+									+ '<ul></ul></div><div class=filter-section-footer></div>').insertAfter('.filter-title');
+						}		
+						$('.selected-filter-section ul').append('<li class="filter-item"><span class="remove">X</span>'
+							+ '<span class="filter-item-name">State</span><span class="filter-item-label">: '+state+'</span></li>');
+						
+						$('.states-filter > div').addClass('open');
+						$('#states-options > li').slideUp("slow");
+						$('#states').hide();
+						
+						var filterGroup = $('.selected-filter-section ul li:last-child').find('.filter-item-name').text().replace(/ /g, '');
+						var filterName = $('.selected-filter-section ul li:last-child').find('.filter-item-label').text().substring(2,$('.selected-filter-section ul li:last-child').find('.filter-item-label').text().length);
+						if(verticesChanged.length == 0) {
+							for(var i = 0; i < vertices.length; i++) {
+								var vertex = vertices[i];
+								var id = idMap[vertices[i].value];
+								var appData = appDataMap[id];
+								$.each(appData,function(i, row) {
+									if(row.name == filterGroup) {
+										if(row.value == filterName ) {
+											verticesChanged.push(vertex);
+											graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');
+										}
+									}
+								});								
+							}
 						}
+						else {
+							for(var i = 0; i < vertices.length; i++) {
+								var vertex = vertices[i];
+								var id = idMap[vertices[i].value];
+								var appData = appDataMap[id];
+								$.each(appData,function(i, row) {
+									if(row.name == filterGroup) {
+										if(row.value == filterName ) {
+											// Do nothing. Already highlighted
+											//graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;');
+										}
+										else {
+											var index = verticesChanged.indexOf(vertex);
+											if(index > -1) {
+												verticesChanged.splice(index,1);		
+											}
+										}
+									}
+								});								
+							}
+						}
+						
 						for(var i = 0; i < vertices.length; i++) {
 							var vertex = vertices[i];
 							if(verticesChanged.indexOf(vertex) < 0) {
 								var appName = appNameMap[vertex.id];
-								graph.getModel().setStyle(vertex,'whiteSpace=wrap;');				
+								graph.getModel().setStyle(vertex,'whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');				
 								graph.labelChanged(vertex,appName);
 							}					
 						}	
 					});
 					
-					$('#cafCritical-options').delegate('li','click',function() {
-						if($(this).children('span').hasClass('ui-icon ui-icon-check')) {
-							$(this).children('span').removeClass('ui-icon ui-icon-check');
+					// CAF Critical options
+					for(var i = 0; i < cafCriticals.length; i++) {
+						var cafCritical = cafCriticals[i];
+						var count = 0;
+						if(duplicates.indexOf(cafCritical) < 0) {
+							for(var j = 0; j < vertices.length; j++) {
+								var vertex = vertices[j];
+								var id = idMap[vertices[j].value];
+								var appData = appDataMap[id];
+								$.each(appData,function(k, row) {
+									if(row.name == "CAF_Critical" && row.value == cafCritical) {
+										count++;
+									}
+								});								
+							}
+							$('<li class="filter-item"><a href="javascript:void(0)" id="filterOptions" class="filter-item-label">'+cafCritical+'</a><span class="count"> ('+count+')</span></li>').hide().prependTo('#cafCritical-options').slideDown("slow");		
+							duplicates.push(cafCritical);
 						}
-						else {
-							$(this).children('span').addClass('ui-icon ui-icon-check');
-						}
+					}
+					$('#cafCritical-options > li').hide();
+					duplicates.length = 0;
+					
+					$('#cafCritical-options').delegate('li a','click',function() {
 						var cafCritical = $(this).text();
-						var verticesChanged = [];
-						for(var i = 0; i < vertices.length; i++) {
-							var vertex = vertices[i];
-							var id = idMap[vertices[i].value];
-							var appData = appDataMap[id];
-							$.each(appData,function(i, row) {
-								if(row.name == "CAF_Critical" && row.value == cafCritical) {
-									verticesChanged.push(vertex);
-									graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;');
-								}
-							});								
+						if($('.filter-section-header').length == 0) {
+							$('<div class="filter-section-header section applied">Applied Filters</div><div class="selected-filter-section section">'
+									+ '<ul></ul></div><div class=filter-section-footer></div>').insertAfter('.filter-title');
+						}		
+						$('.selected-filter-section ul').append('<li class="filter-item"><span class="remove">X</span>'
+							+ '<span class="filter-item-name">CAF Critical</span><span class="filter-item-label">: '+cafCritical+'</span></li>');
+						
+						$('.cafCritical-filter > div').addClass('open');
+						$('#cafCritical-options > li').slideUp("slow");
+						$('#cafCritical').hide();
+						
+						var filterGroup = $('.selected-filter-section ul li:last-child').find('.filter-item-name').text().replace(/ /g, '_');
+						var filterName = $('.selected-filter-section ul li:last-child').find('.filter-item-label').text().substring(2,$('.selected-filter-section ul li:last-child').find('.filter-item-label').text().length);
+						if(verticesChanged.length == 0) {
+							for(var i = 0; i < vertices.length; i++) {
+								var vertex = vertices[i];
+								var id = idMap[vertices[i].value];
+								var appData = appDataMap[id];
+								$.each(appData,function(i, row) {
+									if(row.name == filterGroup) {
+										if(row.value == filterName ) {
+											verticesChanged.push(vertex);
+											graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');
+										}
+									}
+								});								
+							}
 						}
+						else {
+							for(var i = 0; i < vertices.length; i++) {
+								var vertex = vertices[i];
+								var id = idMap[vertices[i].value];
+								var appData = appDataMap[id];
+								$.each(appData,function(i, row) {
+									if(row.name == filterGroup) {
+										if(row.value == filterName ) {
+											// Do nothing. Already highlighted
+											//graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;');
+										}
+										else {
+											var index = verticesChanged.indexOf(vertex);
+											if(index > -1) {
+												verticesChanged.splice(index,1);		
+											}
+										}
+									}
+								});								
+							}
+						}
+						
 						for(var i = 0; i < vertices.length; i++) {
 							var vertex = vertices[i];
 							if(verticesChanged.indexOf(vertex) < 0) {
 								var appName = appNameMap[vertex.id];
-								graph.getModel().setStyle(vertex,'whiteSpace=wrap;');				
+								graph.getModel().setStyle(vertex,'whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');				
 								graph.labelChanged(vertex,appName);
 							}					
 						}	
 					});
 					
-					$('#technologyGroupOwners-options').delegate('li','click',function() {
-						if($(this).children('span').hasClass('ui-icon ui-icon-check')) {
-							$(this).children('span').removeClass('ui-icon ui-icon-check');
+					// Technology Group Owner options
+					for(var i = 0; i < technologyGroupOwners.length; i++) {
+						var technologyGroupOwner = technologyGroupOwners[i];
+						var count = 0;
+						if(duplicates.indexOf(technologyGroupOwner) < 0) {
+							for(var j = 0; j < vertices.length; j++) {
+								var vertex = vertices[j];
+								var id = idMap[vertices[j].value];
+								var appData = appDataMap[id];
+								$.each(appData,function(k, row) {
+									if(row.name == "TechnologyGroupOwner" && row.value == technologyGroupOwner) {
+										count++;
+									}
+								});								
+							}
+							$('<li class="filter-item"><a href="javascript:void(0)" id="filterOptions" class="filter-item-label">'+technologyGroupOwner+'</a><span class="count"> ('+count+')</span></li>').hide().prependTo('#technologyGroupOwners-options').slideDown("slow");			
+							duplicates.push(technologyGroupOwner);
+						}
+					}
+					$('#technologyGroupOwners-options > li').hide();
+					duplicates.length = 0;
+					
+					$('#technologyGroupOwners-options').delegate('li a','click',function() {
+						var technologyGroupOwner = $(this).text();
+						if($('.filter-section-header').length == 0) {
+							$('<div class="filter-section-header section applied">Applied Filters</div><div class="selected-filter-section section">'
+									+ '<ul></ul></div><div class=filter-section-footer></div>').insertAfter('.filter-title');
+						}		
+						$('.selected-filter-section ul').append('<li class="filter-item"><span class="remove">X</span>'
+							+ '<span class="filter-item-name">Technology Group Owner</span><span class="filter-item-label">: '+technologyGroupOwner+'</span></li>');
+						
+						$('.technologyGroupOwners-filter > div').addClass('open');
+						$('#technologyGroupOwners-options > li').slideUp("slow");
+						$('#technologyGroupOwners').hide();
+						
+						var filterGroup = $('.selected-filter-section ul li:last-child').find('.filter-item-name').text().replace(/ /g, '');
+						var filterName = $('.selected-filter-section ul li:last-child').find('.filter-item-label').text().substring(2,$('.selected-filter-section ul li:last-child').find('.filter-item-label').text().length);
+						if(verticesChanged.length == 0) {
+							for(var i = 0; i < vertices.length; i++) {
+								var vertex = vertices[i];
+								var id = idMap[vertices[i].value];
+								var appData = appDataMap[id];
+								$.each(appData,function(i, row) {
+									if(row.name == filterGroup) {
+										if(row.value == filterName ) {
+											verticesChanged.push(vertex);
+											graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');
+										}
+									}
+								});								
+							}
 						}
 						else {
-							$(this).children('span').addClass('ui-icon ui-icon-check');
+							for(var i = 0; i < vertices.length; i++) {
+								var vertex = vertices[i];
+								var id = idMap[vertices[i].value];
+								var appData = appDataMap[id];
+								$.each(appData,function(i, row) {
+									if(row.name == filterGroup) {
+										if(row.value == filterName ) {
+											// Do nothing. Already highlighted
+											//graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;');
+										}
+										else {
+											var index = verticesChanged.indexOf(vertex);
+											if(index > -1) {
+												verticesChanged.splice(index,1);		
+											}
+										}
+									}
+								});								
+							}
 						}
-						var technologyGroupOwner = $(this).text();
-						var verticesChanged = [];
-						for(var i = 0; i < vertices.length; i++) {
-							var vertex = vertices[i];
-							var id = idMap[vertices[i].value];
-							var appData = appDataMap[id];
-							$.each(appData,function(i, row) {
-								if(row.name == "TechnologyGroupOwner" && row.value == technologyGroupOwner) {
-									verticesChanged.push(vertex);
-									graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;');
-								}
-							});								
-						}
+						
 						for(var i = 0; i < vertices.length; i++) {
 							var vertex = vertices[i];
 							if(verticesChanged.indexOf(vertex) < 0) {
 								var appName = appNameMap[vertex.id];
-								graph.getModel().setStyle(vertex,'whiteSpace=wrap;');				
+								graph.getModel().setStyle(vertex,'whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');				
 								graph.labelChanged(vertex,appName);
 							}					
 						}	
@@ -1416,7 +2038,7 @@
 				var idMap = new Object();
 				var appNameMap = [];
 				var edgeMap = [];
-				var appDataMap = [];
+				var appDataMap = [], verticesChanged = [];
 				var parentNode, node;
 				applicationLobs.length = 0;
 				investmentStrategys.length = 0;
@@ -1477,7 +2099,7 @@
 							if(application.applicationId == id) {
 								var appName = application.appName;
 								idMap[appName] = id;
-								node =  graph.insertVertex(parent, null, appName, 0, 0, w, h, 'whiteSpace=wrap;');
+								node =  graph.insertVertex(parent, null, appName, 0, 0, w, h, 'whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter');
 								appNameMap[node.id] = appName;
 								vertices.push(node);
 							}
@@ -1756,199 +2378,1009 @@
 				var vertex = vertices[i];
 				var id = vertex.id;
 				var appName = appNameMap[id];
-				graph.getModel().setStyle(vertex,'whiteSpace=wrap;');				
+				graph.getModel().setStyle(vertex,'whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');				
 				graph.labelChanged(vertex,appName);
 				
 			}
 		});
 		
-		$('#applicationLob-options').delegate('li','click',function() {
-			var appLob = $(this).text();
-			var verticesChanged = [];
-			for(var i = 0; i < vertices.length; i++) {
-				var vertex = vertices[i];
-				var id = idMap[vertices[i].value];
-				var appData = appDataMap[id];
-				$.each(appData,function(i, row) {
-					if(row.name == "ApplicationLOB" && row.value == appLob) {
-						verticesChanged.push(vertex);
-						graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;');
-					}
-				});								
+		$('#filter').delegate('.selected-filter-section ul li .remove','click',function() {
+			var itemName = $(this).next().text();
+			if(itemName == "Application LOB") {
+				$('#applicationLob').show();
 			}
-			for(var i = 0; i < vertices.length; i++) {
-				var vertex = vertices[i];
-				if(verticesChanged.indexOf(vertex) < 0) {
-					var appName = appNameMap[vertex.id];
-					graph.getModel().setStyle(vertex,'whiteSpace=wrap;');				
-					graph.labelChanged(vertex,appName);
-				}					
-			}	
-		});
-		
-		$('#investmentStrategys-options').delegate('li','click',function() {
-			var investmentStrategy = $(this).text();
-			var verticesChanged = [];
-			for(var i = 0; i < vertices.length; i++) {
-				var vertex = vertices[i];
-				var id = idMap[vertices[i].value];
-				var appData = appDataMap[id];
-				$.each(appData,function(i, row) {
-					if(row.name == "InvestmentStrategy" && row.value == investmentStrategy) {
-						verticesChanged.push(vertex);
-						graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;');
-					}
-				});								
+			else if(itemName == "Investment Strategy") {
+				$('#investmentStrategys').show();
 			}
-			for(var i = 0; i < vertices.length; i++) {
-				var vertex = vertices[i];
-				if(verticesChanged.indexOf(vertex) < 0) {
-					var appName = appNameMap[vertex.id];
-					graph.getModel().setStyle(vertex,'whiteSpace=wrap;');				
-					graph.labelChanged(vertex,appName);
-				}					
-			}	
-		});
-		
-		$('#applicationDevelopedBy-options').delegate('li','click',function() {
-			var applicationDevelopedBy = $(this).text();
-			var verticesChanged = [];
-			for(var i = 0; i < vertices.length; i++) {
-				var vertex = vertices[i];
-				var id = idMap[vertices[i].value];
-				var appData = appDataMap[id];
-				$.each(appData,function(i, row) {
-					if(row.name == "ApplicationDevelopedBy" && row.value == applicationDevelopedBy) {
-						verticesChanged.push(vertex);
-						graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;');
-					}
-				});								
+			else if(itemName == "State") {
+				$('#states').show();
 			}
-			for(var i = 0; i < vertices.length; i++) {
-				var vertex = vertices[i];
-				if(verticesChanged.indexOf(vertex) < 0) {
-					var appName = appNameMap[vertex.id];
-					graph.getModel().setStyle(vertex,'whiteSpace=wrap;');				
-					graph.labelChanged(vertex,appName);
-				}					
-			}	
-		});
-		
-		$('#states-options').delegate('li','click',function() {
-			var state = $(this).text();
-			var verticesChanged = [];
-			for(var i = 0; i < vertices.length; i++) {
-				var vertex = vertices[i];
-				var id = idMap[vertices[i].value];
-				var appData = appDataMap[id];
-				$.each(appData,function(i, row) {
-					if(row.name == "State" && row.value == state) {
-						verticesChanged.push(vertex);
-						graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;');
-					}
-				});								
+			else if(itemName == "Application Developed By") {
+				$('#applicationDevelopedBy').show();
 			}
-			for(var i = 0; i < vertices.length; i++) {
-				var vertex = vertices[i];
-				if(verticesChanged.indexOf(vertex) < 0) {
-					var appName = appNameMap[vertex.id];
-					graph.getModel().setStyle(vertex,'whiteSpace=wrap;');				
-					graph.labelChanged(vertex,appName);
-				}					
-			}	
-		});
-		
-		$('#cafCritical-options').delegate('li','click',function() {
-			var cafCritical = $(this).text();
-			var verticesChanged = [];
-			for(var i = 0; i < vertices.length; i++) {
-				var vertex = vertices[i];
-				var id = idMap[vertices[i].value];
-				var appData = appDataMap[id];
-				$.each(appData,function(i, row) {
-					if(row.name == "CAF_Critical" && row.value == cafCritical) {
-						verticesChanged.push(vertex);
-						graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;');
-					}
-				});								
+			else if(itemName == "CAF Critical") {
+				$('#cafCritical').show();
 			}
-			for(var i = 0; i < vertices.length; i++) {
-				var vertex = vertices[i];
-				if(verticesChanged.indexOf(vertex) < 0) {
-					var appName = appNameMap[vertex.id];
-					graph.getModel().setStyle(vertex,'whiteSpace=wrap;');				
-					graph.labelChanged(vertex,appName);
-				}					
-			}	
-		});
-		
-		$('#technologyGroupOwners-options').delegate('li','click',function() {
-			var technologyGroupOwner = $(this).text();
-			var verticesChanged = [];
-			for(var i = 0; i < vertices.length; i++) {
-				var vertex = vertices[i];
-				var id = idMap[vertices[i].value];
-				var appData = appDataMap[id];
-				$.each(appData,function(i, row) {
-					if(row.name == "TechnologyGroupOwner" && row.value == technologyGroupOwner) {
-						verticesChanged.push(vertex);
-						graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;');
-					}
-				});								
+			else if(itemName == "Technology Group Owner") {
+				$('#technologyGroupOwners').show();
 			}
+			else if(itemName == "Environment Group") {
+				$('#envgroup').show();
+			}
+			$(this).parent().remove();
+			if($('.selected-filter-section ul').children('li').length == 0) {
+				$('.filter-section-header, .selected-filter-section, .filter-section-footer').remove();
+			}
+			verticesChanged.length = 0;
 			for(var i = 0; i < vertices.length; i++) {
-				var vertex = vertices[i];
-				if(verticesChanged.indexOf(vertex) < 0) {
+					var vertex = vertices[i];
 					var appName = appNameMap[vertex.id];
-					graph.getModel().setStyle(vertex,'whiteSpace=wrap;');				
-					graph.labelChanged(vertex,appName);
-				}					
+					graph.getModel().setStyle(vertex,'whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');				
+					graph.labelChanged(vertex,appName);					
 			}	
-		});
-		
-		$('#envgroup-options').delegate('li','click',function() {
-			var envGroupName = $(this).text();
-			var dataVal = {
-					'envGroupName':envGroupName
-			};
-			$.ajax({
-				url:contextPath+"/app/users/getEnvironmentFilter",
-				type:"GET",
-				data: dataVal,
-				success:function(data) {
-					//graph.setCellStyles(mxConstants.STYLE_STROKECOLOR, "green", vertices[0]);
-					//graph.setCellStyles(mxConstants.STYLE_STROKEWIDTH, 3 , vertices[0]);
-					var json = $.parseJSON(data);
-					var verticesChanged = [];
-					$.each(json.environments, function(i, environment) {
+			$('.selected-filter-section ul li').each(function() {
+				var filterGroup = $(this).find('.filter-item-name').text();
+				var filterName = $(this).find('.filter-item-label').text().substring(2,$(this).find('.filter-item-label').text().length);
+				if(filterGroup == "Environment Group") {
+					if(verticesChanged.length == 0) {
 						for(var i = 0; i < vertices.length; i++) {
 							var vertex = vertices[i];
-							if(idMap[vertex.value] == environment.applicationId) {
-								verticesChanged.push(vertex)
-								//filterMap[environment.environmentName] = vertex.value;
-								graph.labelChanged(vertex,environment.environmentName);
-								idMap[environment.environmentName] = environment.applicationId;
-								graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;');
-								//cellChanges.push(vertex);
-								//graph.setCellStyles(mxConstants.STYLE_STROKECOLOR, "green", vertices[0]);
-								//graph.setCellStyles(mxConstants.STYLE_STROKEWIDTH, 3 , vertices[0]);
+							var id = idMap[vertices[i].value];
+							var appData = appDataMap[id];
+							$.each(appData,function(i, row) {
+								if(row.name == "EnvGroupName") {
+									if(row.value == filterName) {
+										verticesChanged.push(vertex);
+										graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');
+									}
+								}
+							});								
+						}
+					}
+					else {
+						var found;
+						for(var i = 0; i < vertices.length; i++) {
+							found = false;
+							var vertex = vertices[i];
+							var id = idMap[vertices[i].value];
+							var appData = appDataMap[id];
+							$.each(appData,function(i, row) {
+								if(row.name == "EnvGroupName") {
+									if(row.value == filterName ) {
+										if(verticesChanged.indexOf(vertex) < 0) {
+											verticesChanged.push(vertex);
+											found = true;
+										}
+									}
+									else {
+										var index = verticesChanged.indexOf(vertex);
+										if(index > -1 && !found) {
+											verticesChanged.splice(index,1);		
+										}
+									}
+								}
+							});
+							
+						}
+					}
+				}
+				else if(filterGroup == "CAF Critical") {
+					filterGroup = filterGroup.replace(/ /g, '_');
+				}
+				else {
+					filterGroup = filterGroup.replace(/ /g, '');
+				}
+				if(verticesChanged.length == 0) {
+					for(var i = 0; i < vertices.length; i++) {
+						var vertex = vertices[i];
+						var id = idMap[vertices[i].value];
+						var appData = appDataMap[id];
+						$.each(appData,function(i, row) {
+							if(row.name == filterGroup) {
+								if(row.value == filterName ) {
+									verticesChanged.push(vertex);
+									graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');
+								}
+							}
+						});								
+					}
+				}
+				else {
+					for(var i = 0; i < vertices.length; i++) {
+						var vertex = vertices[i];
+						var id = idMap[vertices[i].value];
+						var appData = appDataMap[id];
+						$.each(appData,function(i, row) {
+							if(row.name == filterGroup) {
+								if(row.value == filterName ) {
+									// Do nothing. Already highlighted
+									//graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;');
+								}
+								else {
+									var index = verticesChanged.indexOf(vertex);
+									if(index > -1) {
+										verticesChanged.splice(index,1);		
+									}
+								}
+							}
+						});								
+					}
+				}
+				
+			});
+			for(var i = 0; i < vertices.length; i++) {
+				var vertex = vertices[i];
+				if(verticesChanged.indexOf(vertex) < 0) {
+					var appName = appNameMap[vertex.id];
+					graph.getModel().setStyle(vertex,'whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');				
+					graph.labelChanged(vertex,appName);
+				}					
+			}	
+		});
+		
+		$('#filter').delegate('.filter li a','click',function() {
+			$('#filter .filter').each(function() {
+				if(!$(this).children('#icon').hasClass('open')) {
+					$(this).children('#icon').addClass('open');
+				}
+				var filterGroup = $(this).children('.filter-header').text();
+				if(filterGroup == "CAF Critical") {
+					filterGroup = filterGroup.replace(/ /g, '_');
+				}
+				else {
+					filterGroup = filterGroup.replace(/ /g, '');
+				}
+				($(this).children('ul').children('li')).each(function() {
+					var filterName = $(this).children('a').text();
+					var count = 0;
+					for(var i = 0; i < verticesChanged.length; i++) {
+						var id = idMap[verticesChanged[i].value];
+						var appData = appDataMap[id];
+						$.each(appData,function(i, row) {
+							if(filterGroup == "Environment Group") {
+								if(row.name == filterName) {
+										count++;										
+								}
+							}
+							else {
+								if(row.name == filterGroup) {
+									if(row.value == filterName ) {
+										count++;
+									}
+								}
+							}
+						});	
+					}
+					
+					$(this).children('.count').text(" ("+count+")");
+					$(this).hide();
+					
+				});
+			});
+			
+		});
+		
+		$('#filter').undelegate('.selected-filter-section ul li .remove').delegate('.selected-filter-section ul li .remove','click',function() {
+			var itemName = $(this).next().text();
+			if(itemName == "Application LOB") {
+				$('#applicationLob').show();
+			}
+			else if(itemName == "Investment Strategy") {
+				$('#investmentStrategys').show();
+			}
+			else if(itemName == "State") {
+				$('#states').show();
+			}
+			else if(itemName == "Application Developed By") {
+				$('#applicationDevelopedBy').show();
+			}
+			else if(itemName == "CAF Critical") {
+				$('#cafCritical').show();
+			}
+			else if(itemName == "Technology Group Owner") {
+				$('#technologyGroupOwners').show();
+			}
+			else if(itemName == "Environment") {
+				$('#environment').show();
+			}
+			$(this).parent().remove();
+			if($('.selected-filter-section ul').children('li').length == 0) {
+				$('.filter-section-header, .selected-filter-section, .filter-section-footer').remove();
+			}
+			verticesChanged.length = 0;
+			for(var i = 0; i < vertices.length; i++) {
+					var vertex = vertices[i];
+					var appName = appNameMap[vertex.id];
+					graph.getModel().setStyle(vertex,'whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');				
+					graph.labelChanged(vertex,appName);					
+			}	
+			$('.selected-filter-section ul li').each(function() {
+				var filterGroup = $(this).find('.filter-item-name').text();
+				var filterName = $(this).find('.filter-item-label').text().substring(2,$(this).find('.filter-item-label').text().length);
+				if(filterGroup == "Environment") {
+					if(verticesChanged.length == 0) {
+						for(var i = 0; i < vertices.length; i++) {
+							var vertex = vertices[i];
+							var id = idMap[vertices[i].value];
+							var appData = appDataMap[id];
+							$.each(appData,function(i, row) {
+								if(row.name == filterName) {
+									//if(row.value == filterName) {
+										verticesChanged.push(vertex);
+										graph.labelChanged(vertex,row.value);
+										idMap[row.value] = id;
+										graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');
+									//}
+								}
+							});								
+						}
+					}
+					else {
+						var found;
+						for(var i = 0; i < vertices.length; i++) {
+							found = false;
+							var vertex = vertices[i];
+							var id = idMap[vertices[i].value];
+							var appData = appDataMap[id];
+							$.each(appData,function(i, row) {
+								if(row.name == filterName) {
+									found = true;
+									graph.labelChanged(vertex,row.value);
+									idMap[row.value] = id;
+								}
+							});
+							if(!found) {
+								var index = verticesChanged.indexOf(vertex);
+								if(index > -1) {
+									verticesChanged.splice(index,1);		
+								}
+							}
+						}
+					}
+				}
+				else if(filterGroup == "CAF Critical") {
+					filterGroup = filterGroup.replace(/ /g, '_');
+				}
+				else {
+					filterGroup = filterGroup.replace(/ /g, '');
+				}
+				if(verticesChanged.length == 0) {
+					for(var i = 0; i < vertices.length; i++) {
+						var vertex = vertices[i];
+						var id = idMap[vertices[i].value];
+						var appData = appDataMap[id];
+						$.each(appData,function(i, row) {
+							if(row.name == filterGroup) {
+								if(row.value == filterName ) {
+									verticesChanged.push(vertex);
+									graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');
+								}
+							}
+						});								
+					}
+				}
+				else {
+					for(var i = 0; i < vertices.length; i++) {
+						var vertex = vertices[i];
+						var id = idMap[vertices[i].value];
+						var appData = appDataMap[id];
+						$.each(appData,function(i, row) {
+							if(row.name == filterGroup) {
+								if(row.value == filterName ) {
+									// Do nothing. Already highlighted
+								}
+								else {
+									var index = verticesChanged.indexOf(vertex);
+									if(index > -1) {
+										verticesChanged.splice(index,1);		
+									}
+								}
+							}
+						});								
+					}
+				}
+				
+			});
+			for(var i = 0; i < vertices.length; i++) {
+				var vertex = vertices[i];
+				if(verticesChanged.indexOf(vertex) < 0) {
+					var appName = appNameMap[vertex.id];
+					graph.getModel().setStyle(vertex,'whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');				
+					graph.labelChanged(vertex,appName);
+				}					
+			}
+			$('#filter .filter').each(function() {
+				if(!$(this).children('#icon').hasClass('open')) {
+					$(this).children('#icon').addClass('open');
+				}
+				var filterGroup = $(this).children('.filter-header').text();
+				if(filterGroup == "CAF Critical") {
+					filterGroup = filterGroup.replace(/ /g, '_');
+				}
+				else {
+					filterGroup = filterGroup.replace(/ /g, '');
+				}
+				($(this).children('ul').children('li')).each(function() {
+					var filterName = $(this).children('a').text();
+					var count = 0;
+					if(verticesChanged.length == 0) {
+						for(var i = 0; i < vertices.length; i++) {
+							var id = idMap[vertices[i].value];
+							var appData = appDataMap[id];
+							$.each(appData,function(i, row) {
+								if(filterGroup == "Environment") {
+									if(row.name == filterName) {
+											count++;										
+									}
+								}
+								else {
+									if(row.name == filterGroup) {
+										if(row.value == filterName ) {
+											count++;
+										}
+									}
+								}
+							});	
+						}
+					}
+					else {
+						for(var i = 0; i < verticesChanged.length; i++) {
+							var id = idMap[verticesChanged[i].value];
+							var appData = appDataMap[id];
+							$.each(appData,function(i, row) {
+								if(filterGroup == "Environment") {
+									if(row.name == filterName) {
+											count++;										
+									}
+								}
+								else {
+									if(row.name == filterGroup) {
+										if(row.value == filterName ) {
+											count++;
+										}
+									}
+								}
+							});	
+						}	
+					}
+					
+					$(this).children('.count').text(" ("+count+")");
+					$(this).hide();
+					
+				});
+			});
+		});
+		
+		var duplicates = [];
+		
+		// Get Application LOB options
+		for(var i = 0; i < applicationLobs.length; i++) {
+			var appLob = applicationLobs[i];
+			if(duplicates.indexOf(appLob) < 0) {
+				var count = 0;
+				for(var j = 0; j < vertices.length; j++) {
+					var vertex = vertices[j];
+					var id = idMap[vertices[j].value];
+					var appData = appDataMap[id];
+					$.each(appData,function(k, row) {
+						if(row.name == "ApplicationLOB" && row.value == appLob) {
+							count++;
+						}
+					});								
+				}
+				$('<li class="filter-item"><a href="javascript:void(0)" id="filterOptions" class="filter-item-label">'+appLob+'</a><span class="count"> ('+count+')</span></li>').hide().prependTo('#applicationLob-options').slideDown("slow");		
+				duplicates.push(appLob);
+			}
+		}
+		$('#applicationLob-options > li').hide();
+		duplicates.length = 0;
+		
+		$('#applicationLob-options').delegate('li a','click',function() {
+			var appLob = $(this).text();
+			if($('.filter-section-header').length == 0) {
+				$('<div class="filter-section-header section applied">Applied Filters</div><div class="selected-filter-section section">'
+						+ '<ul></ul></div><div class=filter-section-footer></div>').insertAfter('.filter-title');
+			}		
+			$('.selected-filter-section ul').append('<li class="filter-item"><span class="remove">X</span>'
+				+ '<span class="filter-item-name">Application LOB</span><span class="filter-item-label">: '+appLob+'</span></li>');
+			
+			$('.applicationLob-filter > div').addClass('open');
+			$('#applicationLob-options > li').slideUp("slow");
+			$('#applicationLob').hide();
+			
+			
+			var filterGroup = $('.selected-filter-section ul li:last-child').find('.filter-item-name').text().replace(/ /g, '');
+			var filterName = $('.selected-filter-section ul li:last-child').find('.filter-item-label').text().substring(2,$('.selected-filter-section ul li:last-child').find('.filter-item-label').text().length);
+			if(verticesChanged.length == 0) {
+				for(var i = 0; i < vertices.length; i++) {
+					var vertex = vertices[i];
+					var id = idMap[vertices[i].value];
+					var appData = appDataMap[id];
+					$.each(appData,function(i, row) {
+						if(row.name == filterGroup) {
+							if(row.value == filterName ) {
+								verticesChanged.push(vertex);
+								graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');
+							}
+						}
+					});								
+				}
+			}
+			else {
+				for(var i = 0; i < vertices.length; i++) {
+					var vertex = vertices[i];
+					var id = idMap[vertices[i].value];
+					var appData = appDataMap[id];
+					$.each(appData,function(i, row) {
+						if(row.name == filterGroup) {
+							if(row.value == filterName ) {
+								// Do nothing. Already highlighted
+							}
+							else {
+								var index = verticesChanged.indexOf(vertex);
+								if(index > -1) {
+									verticesChanged.splice(index,1);		
+								}
+							}
+						}
+					});								
+				}
+			}
+									
+			for(var i = 0; i < vertices.length; i++) {
+				var vertex = vertices[i];
+				if(verticesChanged.indexOf(vertex) < 0) {
+					var appName = appNameMap[vertex.id];
+					graph.getModel().setStyle(vertex,'whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');				
+					graph.labelChanged(vertex,appName);
+				}					
+			}	
+		});
+		
+		// Get Investment Strategy options
+		for(var i = 0; i < investmentStrategys.length; i++) {
+			var count = 0;
+			var investmentStrategy = investmentStrategys[i];
+			if(duplicates.indexOf(investmentStrategy) < 0) {
+				for(var j = 0; j < vertices.length; j++) {
+					var vertex = vertices[j];
+					var id = idMap[vertices[j].value];
+					var appData = appDataMap[id];
+					$.each(appData,function(k, row) {
+						if(row.name == "InvestmentStrategy" && row.value == investmentStrategy) {
+							count++;
+						}
+					});								
+				}
+				$('<li class="filter-item"><a href="javascript:void(0)" id="filterOptions" class="filter-item-label">'+investmentStrategy+'</a><span class="count"> ('+count+')</span></li>').hide().prependTo('#investmentStrategys-options').slideDown("slow");		
+				duplicates.push(investmentStrategy);
+			}
+		}
+		$('#investmentStrategys-options > li').hide();
+		duplicates.length = 0;
+		
+		$('#investmentStrategys-options').delegate('li a','click',function() {
+			var investmentStrategy = $(this).text();
+			if($('.filter-section-header').length == 0) {
+				$('<div class="filter-section-header section applied">Applied Filters</div><div class="selected-filter-section section">'
+						+ '<ul></ul></div><div class=filter-section-footer></div>').insertAfter('.filter-title');
+			}		
+			$('.selected-filter-section ul').append('<li class="filter-item"><span class="remove">X</span>'
+				+ '<span class="filter-item-name">Investment Strategy</span><span class="filter-item-label">: '+investmentStrategy+'</span></li>');
+			
+			$('.investmentStrategys-filter > div').addClass('open');
+			$('#investmentStrategys-options > li').slideUp("slow");
+			$('#investmentStrategys').hide();
+			
+			var filterGroup = $('.selected-filter-section ul li:last-child').find('.filter-item-name').text().replace(/ /g, '');
+			var filterName = $('.selected-filter-section ul li:last-child').find('.filter-item-label').text().substring(2,$('.selected-filter-section ul li:last-child').find('.filter-item-label').text().length);
+			if(verticesChanged.length == 0) {
+				for(var i = 0; i < vertices.length; i++) {
+					var vertex = vertices[i];
+					var id = idMap[vertices[i].value];
+					var appData = appDataMap[id];
+					$.each(appData,function(i, row) {
+						if(row.name == filterGroup) {
+							if(row.value == filterName ) {
+								verticesChanged.push(vertex);
+								graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');
+							}
+						}
+					});								
+				}
+			}
+			else {
+				for(var i = 0; i < vertices.length; i++) {
+					var vertex = vertices[i];
+					var id = idMap[vertices[i].value];
+					var appData = appDataMap[id];
+					$.each(appData,function(i, row) {
+						if(row.name == filterGroup) {
+							if(row.value == filterName ) {
+								// Do nothing. Already highlighted
+								//graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;');
+							}
+							else {
+								var index = verticesChanged.indexOf(vertex);
+								if(index > -1) {
+									verticesChanged.splice(index,1);		
+								}
+							}
+						}
+					});								
+				}
+			}
+			
+			for(var i = 0; i < vertices.length; i++) {
+				var vertex = vertices[i];
+				if(verticesChanged.indexOf(vertex) < 0) {
+					var appName = appNameMap[vertex.id];
+					graph.getModel().setStyle(vertex,'whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');				
+					graph.labelChanged(vertex,appName);
+				}					
+			}	
+		});
+		
+		// Application Developed By options
+		for(var i = 0; i < applicationDevelopedBy.length; i++) {
+			var appDevelopedBy = applicationDevelopedBy[i];
+			var count = 0;
+			if(duplicates.indexOf(appDevelopedBy) < 0 && appDevelopedBy != "") {
+				for(var j = 0; j < vertices.length; j++) {
+					var vertex = vertices[j];
+					var id = idMap[vertices[j].value];
+					var appData = appDataMap[id];
+					$.each(appData,function(k, row) {
+						if(row.name == "ApplicationDevelopedBy" && row.value == appDevelopedBy) {
+							count++;
+						}
+					});								
+				}
+				$('<li class="filter-item"><a href="javascript:void(0)" id="filterOptions" class="filter-item-label">'+appDevelopedBy+'</a><span class="count"> ('+count+')</span></li>').hide().prependTo('#applicationDevelopedBy-options').slideDown("slow");	
+				duplicates.push(appDevelopedBy);
+			}
+		}
+		$('#applicationDevelopedBy-options > li').hide();
+		duplicates.length = 0;
+		
+		$('#applicationDevelopedBy-options').delegate('li a','click',function() {
+			var applicationDevelopedBy = $(this).text();
+			if($('.filter-section-header').length == 0) {
+				$('<div class="filter-section-header section applied">Applied Filters</div><div class="selected-filter-section section">'
+						+ '<ul></ul></div><div class=filter-section-footer></div>').insertAfter('.filter-title');
+			}		
+			$('.selected-filter-section ul').append('<li class="filter-item"><span class="remove">X</span>'
+				+ '<span class="filter-item-name">Application Developed By</span><span class="filter-item-label">: '+applicationDevelopedBy+'</span></li>');
+			
+			$('.applicationDevelopedBy-filter > div').addClass('open');
+			$('#applicationDevelopedBy-options > li').slideUp("slow");
+			$('#applicationDevelopedBy').hide();
+			
+			var filterGroup = $('.selected-filter-section ul li:last-child').find('.filter-item-name').text().replace(/ /g, '');
+			var filterName = $('.selected-filter-section ul li:last-child').find('.filter-item-label').text().substring(2,$('.selected-filter-section ul li:last-child').find('.filter-item-label').text().length);
+			if(verticesChanged.length == 0) {
+				for(var i = 0; i < vertices.length; i++) {
+					var vertex = vertices[i];
+					var id = idMap[vertices[i].value];
+					var appData = appDataMap[id];
+					$.each(appData,function(i, row) {
+						if(row.name == filterGroup) {
+							if(row.value == filterName ) {
+								verticesChanged.push(vertex);
+								graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');
+							}
+						}
+					});								
+				}
+			}
+			else {
+				for(var i = 0; i < vertices.length; i++) {
+					var vertex = vertices[i];
+					var id = idMap[vertices[i].value];
+					var appData = appDataMap[id];
+					$.each(appData,function(i, row) {
+						if(row.name == filterGroup) {
+							if(row.value == filterName ) {
+								// Do nothing. Already highlighted
+								//graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;');
+							}
+							else {
+								var index = verticesChanged.indexOf(vertex);
+								if(index > -1) {
+									verticesChanged.splice(index,1);		
+								}
+							}
+						}
+					});								
+				}
+			}
+			
+			for(var i = 0; i < vertices.length; i++) {
+				var vertex = vertices[i];
+				if(verticesChanged.indexOf(vertex) < 0) {
+					var appName = appNameMap[vertex.id];
+					graph.getModel().setStyle(vertex,'whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');				
+					graph.labelChanged(vertex,appName);
+				}					
+			}	
+		});
+		
+		// States options
+		for(var i = 0; i < states.length; i++) {
+			var count = 0;
+			var state = states[i];
+			if(duplicates.indexOf(state) < 0) {
+				for(var j = 0; j < vertices.length; j++) {
+					var vertex = vertices[j];
+					var id = idMap[vertices[j].value];
+					var appData = appDataMap[id];
+					$.each(appData,function(k, row) {
+						if(row.name == "State" && row.value == state) {
+							count++;
+						}
+					});								
+				}
+				$('<li class="filter-item"><a href="javascript:void(0)" id="filterOptions" class="filter-item-label">'+state+'</a><span class="count"> ('+count+')</span></li>').hide().prependTo('#states-options').slideDown("slow");	
+				duplicates.push(state);
+			}
+		}
+		$('#states-options > li').hide();
+		duplicates.length = 0;
+		
+		$('#states-options').delegate('li a','click',function() {
+			var state = $(this).text();
+			if($('.filter-section-header').length == 0) {
+				$('<div class="filter-section-header section applied">Applied Filters</div><div class="selected-filter-section section">'
+						+ '<ul></ul></div><div class=filter-section-footer></div>').insertAfter('.filter-title');
+			}		
+			$('.selected-filter-section ul').append('<li class="filter-item"><span class="remove">X</span>'
+				+ '<span class="filter-item-name">State</span><span class="filter-item-label">: '+state+'</span></li>');
+			
+			$('.states-filter > div').addClass('open');
+			$('#states-options > li').slideUp("slow");
+			$('#states').hide();
+			
+			var filterGroup = $('.selected-filter-section ul li:last-child').find('.filter-item-name').text().replace(/ /g, '');
+			var filterName = $('.selected-filter-section ul li:last-child').find('.filter-item-label').text().substring(2,$('.selected-filter-section ul li:last-child').find('.filter-item-label').text().length);
+			if(verticesChanged.length == 0) {
+				for(var i = 0; i < vertices.length; i++) {
+					var vertex = vertices[i];
+					var id = idMap[vertices[i].value];
+					var appData = appDataMap[id];
+					$.each(appData,function(i, row) {
+						if(row.name == filterGroup) {
+							if(row.value == filterName ) {
+								verticesChanged.push(vertex);
+								graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');
+							}
+						}
+					});								
+				}
+			}
+			else {
+				for(var i = 0; i < vertices.length; i++) {
+					var vertex = vertices[i];
+					var id = idMap[vertices[i].value];
+					var appData = appDataMap[id];
+					$.each(appData,function(i, row) {
+						if(row.name == filterGroup) {
+							if(row.value == filterName ) {
+								// Do nothing. Already highlighted
+								//graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;');
+							}
+							else {
+								var index = verticesChanged.indexOf(vertex);
+								if(index > -1) {
+									verticesChanged.splice(index,1);		
+								}
+							}
+						}
+					});								
+				}
+			}
+			
+			for(var i = 0; i < vertices.length; i++) {
+				var vertex = vertices[i];
+				if(verticesChanged.indexOf(vertex) < 0) {
+					var appName = appNameMap[vertex.id];
+					graph.getModel().setStyle(vertex,'whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');				
+					graph.labelChanged(vertex,appName);
+				}					
+			}	
+		});
+		
+		// CAF Critical options
+		for(var i = 0; i < cafCriticals.length; i++) {
+			var cafCritical = cafCriticals[i];
+			var count = 0;
+			if(duplicates.indexOf(cafCritical) < 0) {
+				for(var j = 0; j < vertices.length; j++) {
+					var vertex = vertices[j];
+					var id = idMap[vertices[j].value];
+					var appData = appDataMap[id];
+					$.each(appData,function(k, row) {
+						if(row.name == "CAF_Critical" && row.value == cafCritical) {
+							count++;
+						}
+					});								
+				}
+				$('<li class="filter-item"><a href="javascript:void(0)" id="filterOptions" class="filter-item-label">'+cafCritical+'</a><span class="count"> ('+count+')</span></li>').hide().prependTo('#cafCritical-options').slideDown("slow");		
+				duplicates.push(cafCritical);
+			}
+		}
+		$('#cafCritical-options > li').hide();
+		duplicates.length = 0;
+		
+		$('#cafCritical-options').delegate('li a','click',function() {
+			var cafCritical = $(this).text();
+			if($('.filter-section-header').length == 0) {
+				$('<div class="filter-section-header section applied">Applied Filters</div><div class="selected-filter-section section">'
+						+ '<ul></ul></div><div class=filter-section-footer></div>').insertAfter('.filter-title');
+			}		
+			$('.selected-filter-section ul').append('<li class="filter-item"><span class="remove">X</span>'
+				+ '<span class="filter-item-name">CAF Critical</span><span class="filter-item-label">: '+cafCritical+'</span></li>');
+			
+			$('.cafCritical-filter > div').addClass('open');
+			$('#cafCritical-options > li').slideUp("slow");
+			$('#cafCritical').hide();
+			
+			var filterGroup = $('.selected-filter-section ul li:last-child').find('.filter-item-name').text().replace(/ /g, '_');
+			var filterName = $('.selected-filter-section ul li:last-child').find('.filter-item-label').text().substring(2,$('.selected-filter-section ul li:last-child').find('.filter-item-label').text().length);
+			if(verticesChanged.length == 0) {
+				for(var i = 0; i < vertices.length; i++) {
+					var vertex = vertices[i];
+					var id = idMap[vertices[i].value];
+					var appData = appDataMap[id];
+					$.each(appData,function(i, row) {
+						if(row.name == filterGroup) {
+							if(row.value == filterName ) {
+								verticesChanged.push(vertex);
+								graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');
+							}
+						}
+					});								
+				}
+			}
+			else {
+				for(var i = 0; i < vertices.length; i++) {
+					var vertex = vertices[i];
+					var id = idMap[vertices[i].value];
+					var appData = appDataMap[id];
+					$.each(appData,function(i, row) {
+						if(row.name == filterGroup) {
+							if(row.value == filterName ) {
+								// Do nothing. Already highlighted
+								//graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;');
+							}
+							else {
+								var index = verticesChanged.indexOf(vertex);
+								if(index > -1) {
+									verticesChanged.splice(index,1);		
+								}
+							}
+						}
+					});								
+				}
+			}
+			
+			for(var i = 0; i < vertices.length; i++) {
+				var vertex = vertices[i];
+				if(verticesChanged.indexOf(vertex) < 0) {
+					var appName = appNameMap[vertex.id];
+					graph.getModel().setStyle(vertex,'whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');				
+					graph.labelChanged(vertex,appName);
+				}					
+			}	
+		});
+		// Technology Group Owner options
+		for(var i = 0; i < technologyGroupOwners.length; i++) {
+			var technologyGroupOwner = technologyGroupOwners[i];
+			var count = 0;
+			if(duplicates.indexOf(technologyGroupOwner) < 0) {
+				for(var j = 0; j < vertices.length; j++) {
+					var vertex = vertices[j];
+					var id = idMap[vertices[j].value];
+					var appData = appDataMap[id];
+					$.each(appData,function(k, row) {
+						if(row.name == "TechnologyGroupOwner" && row.value == technologyGroupOwner) {
+							count++;
+						}
+					});								
+				}
+				$('<li class="filter-item"><a href="javascript:void(0)" id="filterOptions" class="filter-item-label">'+technologyGroupOwner+'</a><span class="count"> ('+count+')</span></li>').hide().prependTo('#technologyGroupOwners-options').slideDown("slow");			
+				duplicates.push(technologyGroupOwner);
+			}
+		}
+		$('#technologyGroupOwners-options > li').hide();
+		duplicates.length = 0;
+		
+		$('#technologyGroupOwners-options').delegate('li a','click',function() {
+			var technologyGroupOwner = $(this).text();
+			if($('.filter-section-header').length == 0) {
+				$('<div class="filter-section-header section applied">Applied Filters</div><div class="selected-filter-section section">'
+						+ '<ul></ul></div><div class=filter-section-footer></div>').insertAfter('.filter-title');
+			}		
+			$('.selected-filter-section ul').append('<li class="filter-item"><span class="remove">X</span>'
+				+ '<span class="filter-item-name">Technology Group Owner</span><span class="filter-item-label">: '+technologyGroupOwner+'</span></li>');
+			
+			$('.technologyGroupOwners-filter > div').addClass('open');
+			$('#technologyGroupOwners-options > li').slideUp("slow");
+			$('#technologyGroupOwners').hide();
+			
+			var filterGroup = $('.selected-filter-section ul li:last-child').find('.filter-item-name').text().replace(/ /g, '');
+			var filterName = $('.selected-filter-section ul li:last-child').find('.filter-item-label').text().substring(2,$('.selected-filter-section ul li:last-child').find('.filter-item-label').text().length);
+			if(verticesChanged.length == 0) {
+				for(var i = 0; i < vertices.length; i++) {
+					var vertex = vertices[i];
+					var id = idMap[vertices[i].value];
+					var appData = appDataMap[id];
+					$.each(appData,function(i, row) {
+						if(row.name == filterGroup) {
+							if(row.value == filterName ) {
+								verticesChanged.push(vertex);
+								graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');
+							}
+						}
+					});								
+				}
+			}
+			else {
+				for(var i = 0; i < vertices.length; i++) {
+					var vertex = vertices[i];
+					var id = idMap[vertices[i].value];
+					var appData = appDataMap[id];
+					$.each(appData,function(i, row) {
+						if(row.name == filterGroup) {
+							if(row.value == filterName ) {
+								// Do nothing. Already highlighted
+								//graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;');
+							}
+							else {
+								var index = verticesChanged.indexOf(vertex);
+								if(index > -1) {
+									verticesChanged.splice(index,1);		
+								}
+							}
+						}
+					});								
+				}
+			}
+			
+			for(var i = 0; i < vertices.length; i++) {
+				var vertex = vertices[i];
+				if(verticesChanged.indexOf(vertex) < 0) {
+					var appName = appNameMap[vertex.id];
+					graph.getModel().setStyle(vertex,'whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');				
+					graph.labelChanged(vertex,appName);
+				}					
+			}	
+		});
+		
+		// Environment Group options
+		var appGroupName = $('#search').val();
+		var appGroupId = '';
+		$.each(appGroupsMessage, function(i, appGroup) {
+			if(appGroup.appGroupName == appGroupName) {
+				appGroupId = appGroup.appGroupId;
+			}
+		});
+		var dataVal = {
+				'appGroupId':appGroupId
+		};
+		$.ajax({
+			url:contextPath+"/app/users/getEnvGroupFilter",
+			type:"GET",
+			data: dataVal,
+			success:function(data) {
+				var json = $.parseJSON(data);
+				$.each(json.envgroups, function(i, envgroup) {
+					var count = 0;
+					var envGroupName = envgroup.envGroupName;
+					var dataVal = {
+							'envGroupName':envGroupName
+					};
+					$.ajax({
+						url:contextPath+"/app/users/getEnvironmentFilter",
+						type:"GET",
+						data: dataVal,
+						async:false,
+						success:function(data) {
+							var json = $.parseJSON(data);
+							$.each(json.environments, function(k, environment) {
+								for(var j = 0; j < vertices.length; j++) {
+									var vertex = vertices[j];
+									var id = idMap[vertex.value];
+									if(id == environment.applicationId) {
+										var obj = {
+												'name':"EnvGroupName",
+												'value':envGroupName
+										};
+										appDataMap[id].push(obj);
+										count++;
+									}
+								}
+							});
+						},
+						error:function(msg) {
+							alert("ERROR: " + msg);
+						}
+					});
+					$('<li class="filter-item"><a href="javascript:void(0)" id="filterOptions" class="filter-item-label">'+envgroup.envGroupName+'</a><span class="count"> ('+count+')</span></li>').hide().prependTo('#envgroup-options').slideDown("slow");
+				});
+				$('#envgroup-options > li').hide();
+			},
+			error:function(msg) {
+				alert("ERROR: " + msg);
+			}
+		});
+		
+		$('#envgroup-options').delegate('li a','click',function() {
+			var envGroupName = $(this).text();
+			
+			if($('.filter-section-header').length == 0) {
+				$('<div class="filter-section-header section applied">Applied Filters</div><div class="selected-filter-section section">'
+						+ '<ul></ul></div><div class=filter-section-footer></div>').insertAfter('.filter-title');
+			}		
+			$('.selected-filter-section ul').append('<li class="filter-item"><span class="remove">X</span>'
+				+ '<span class="filter-item-name">Environment Group</span><span class="filter-item-label">: '+envGroupName+'</span></li>');
+			
+			$('.envgroup-filter > div').addClass('open');
+			$('#envgroup-options > li').slideUp("slow");
+			$('#envgroup').hide();
+			
+			var filterGroup = $('.selected-filter-section ul li:last-child').find('.filter-item-name').text().replace(/ /g, '');
+			var filterName = $('.selected-filter-section ul li:last-child').find('.filter-item-label').text().substring(2,$('.selected-filter-section ul li:last-child').find('.filter-item-label').text().length);
+			
+			if(verticesChanged.length == 0) {
+				for(var i = 0; i < vertices.length; i++) {
+					var vertex = vertices[i];
+					var id = idMap[vertices[i].value];
+					var appData = appDataMap[id];
+					$.each(appData,function(i, row) {
+						if(row.name == "EnvGroupName") {
+							if(row.value == filterName) {
+								verticesChanged.push(vertex);
+								graph.getModel().setStyle(vertex,'strokeColor=green;strokeWidth=3;whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');
+							}
+						}
+					});								
+				}
+			}
+			else {
+				var found;
+				for(var i = 0; i < vertices.length; i++) {
+					found = false;
+					var vertex = vertices[i];
+					var id = idMap[vertices[i].value];
+					var appData = appDataMap[id];
+					$.each(appData,function(i, row) {
+						if(row.name == "EnvGroupName") {
+							if(row.value == filterName ) {
+								if(verticesChanged.indexOf(vertex) < 0) {
+									verticesChanged.push(vertex);
+									found = true;
+								}
+							}
+							else {
+								var index = verticesChanged.indexOf(vertex);
+								if(index > -1 && !found) {
+									verticesChanged.splice(index,1);		
+								}
 							}
 						}
 					});
-					for(var i = 0; i < vertices.length; i++) {
-						var vertex = vertices[i];
-						if(verticesChanged.indexOf(vertex) < 0) {
-							var appName = appNameMap[vertex.id];
-							graph.getModel().setStyle(vertex,'whiteSpace=wrap;');				
-							graph.labelChanged(vertex,appName);
-						}					
-					}
 					
-				},
-				error:function(msg) {
-					alert("ERROR: " + msg);
 				}
-			});
+			}
+			
+			for(var i = 0; i < vertices.length; i++) {
+				var vertex = vertices[i];
+				if(verticesChanged.indexOf(vertex) < 0) {
+					var appName = appNameMap[vertex.id];
+					graph.getModel().setStyle(vertex,'whiteSpace=wrap;shape=ellipse;perimeter=ellipsePerimeter;');				
+					graph.labelChanged(vertex,appName);
+				}					
+			}
 		});
 		
 		
@@ -2296,7 +3728,6 @@
 				graph.removeCells(graph.getChildVertices(graph.getDefaultParent()));
 				// Enables rubberband selection
 				new mxRubberband(graph);
-				
 				// Gets the default parent for inserting new cells. This
 				// is normally the first child of the root (ie. layer 0).
 				graph.setPanning(true);
@@ -2320,18 +3751,8 @@
 				var appNameMap = [];
 				var serverInfo = [];
 				var serverNameMap = [];
-				memoryCapacity.length = 0, numberOfProcessors.length = 0, serverRole.length = 0, serverMake.length = 0, serverBuilding.length = 0;
-				
-				var style = new Object();
-				style[mxConstants.STYLE_PERIMETER] = mxPerimeter.RectanglePerimeter;
-				style[mxConstants.STYLE_STROKECOLOR] = '#000000';
-				style[mxConstants.STYLE_VERTICAL_ALIGN] = mxConstants.ALIGN_TOP;
-				style[mxConstants.STYLE_VERTICAL_LABEL_POSITION] = mxConstants.ALIGN_BOTTOM;
-				style[mxConstants.STYLE_IMAGE] = '<%=contextPath%>/images/Server_small.jpg';
-				style[mxConstants.STYLE_IMAGE_WIDTH] = '48';
-				style[mxConstants.STYLE_IMAGE_HEIGHT] = '48';
-				graph.getStylesheet().putCellStyle('custom', style);
-				
+				var markerMap = [];
+				memoryCapacity.length = 0, numberOfProcessors.length = 0, serverRole.length = 0, serverMake.length = 0, serverBuilding.length = 0, serverAddress.length = 0;;
 				try
 				{
 					var id = $('#search').val();
@@ -2343,6 +3764,7 @@
 						url:contextPath+"/app/users/getServerHardware",
 						type:"GET",
 						data: dataVal,
+						async:false,
 						success:function(data) {
 							var json  = $.parseJSON(data);
 							$.each(json.data, function(i, item){
@@ -2356,7 +3778,7 @@
 					}).done(function() {
 						var hostName = '';
 						for(var i = 0; i < serverInfo.length; i++) {
-							$.each(serverInfo[i],function(i, row) {
+							$.each(serverInfo[i],function(j, row) {
 								if(row.name == "HostName") {
 									hostName = row.value;
 									serverDataMap[hostName] = serverInfo[i];
@@ -2375,6 +3797,9 @@
 								}
 								else if(row.name == "ServerBuilding") {
 									serverBuilding.push(row.value);
+								}
+								else if(row.name == "ServerAddress") {
+									serverAddress.push(row.value);
 								}
 							});
 							if(serverInfo.length < 35) {
@@ -2412,11 +3837,8 @@
 							$.each(serverInfo,function(i, row) {
 								if(row.name == "MemoryCapacity" && row.value == memoryCapacity) {
 									verticesChanged.push(vertex);
-									//var style = new Object();
-									//style[mxConstants.STYLE_STROKECOLOR] = '#000000';
-									//style[mxConstants.STYLE_STROKEWIDTH] = '3';
-									//graph.getStylesheet().putCellStyle(vertex, style);
-									graph.getModel().setStyle(vertex,prefix+'perimeter=rectangePerimeter;verticalLabelPosition=bottom;verticalAlign=top;strokeColor=black;strokeWidth=10;whiteSpace=wrap;');
+									prefix = 'shape=image;image=<%=contextPath%>/images/Server_small_green.jpg;';
+									graph.getModel().setStyle(vertex,prefix+'whiteSpace=wrap;verticalLabelPosition=bottom;verticalAlign=top');
 								}
 							});								
 						}
@@ -2424,6 +3846,7 @@
 							var vertex = vertices[i];
 							if(verticesChanged.indexOf(vertex) < 0) {
 								var hostName = serverNameMap[vertex.id];
+								prefix = 'shape=image;image=<%=contextPath%>/images/Server_small.jpg;';
 								graph.getModel().setStyle(vertex,prefix+'whiteSpace=wrap;verticalLabelPosition=bottom;verticalAlign=top');				
 								graph.labelChanged(vertex,hostName);
 							}					
@@ -2611,12 +4034,230 @@
 				}
 				finally
 				{
+					initialize();
 					//layout.execute(parent);
 					//load(graph, parentNode, x, y, vertices);
 					graph.getModel().endUpdate();
-				}
+				}			
 			}
-		};
+			
+			var geocoder;
+			function initialize() {
+				geocoder = new google.maps.Geocoder();
+				  var mapOptions = {
+				    zoom: 5,
+				    center: new google.maps.LatLng(0,0)
+				  }
+				  var map = new google.maps.Map(document.getElementById('graphContainer'),
+				                                mapOptions);
+
+				  var unique = [];
+				  for(var i = 0; i < serverAddress.length; i++) {
+					  var address = serverAddress[i];
+					  if(unique.indexOf(address) < 0) {
+						  unique.push(address);
+					  }
+				  }
+				  setMarkers(map, unique);
+			}
+
+			var positionMap = [];
+			function setMarkers(map, addresses) {
+				var prefix = '<%=contextPath%>/images/Server_small.jpg';
+				  for (var i = 0; i < addresses.length; i++) {
+					  var address = addresses[i];
+					  var arr = address.split(",");
+					  var city = arr[arr.length-3];
+					  geocoder.geocode( { 'address': address}, callBack(prefix,map,city,address));	
+				  }
+			}
+			
+			function callBack(icon,map,city,address) {
+			    return function(results, status) {
+			      if (status == google.maps.GeocoderStatus.OK) {
+			        addMarker(map, results[0].geometry.location, icon,city,address);
+			      } else {
+			        console.log("Geocode failed " + status);
+			      }
+			    };
+			  }
+			
+			function addMarker(map,loc,image,label,address) {
+				 map.setCenter(loc);
+				  var marker = new MarkerWithLabel({
+					  map: map,
+			          position: loc,
+			          labelContent:label,
+			          labelClass: "labels",
+			          labelAnchor: new google.maps.Point(22, 0),
+			          icon:image,
+			          labelStyle: {opacity: 0.75}
+				  });
+				  google.maps.event.addListener(marker, 'click', function() {
+					  $('.serverInfo').empty();
+						var servers = [], match, serverRole = '', hostName = '',serialNo = 0, numOfProcessors = 0, memoryCapacity = 0;
+						$('.serverInfo').append('<thead><tr><th>Serial No.</th><th>Host Name</th><th>Server Role</th><th>Number of Processors</th><th>Memory Capacity(MB)</th></tr></thead><tbody>');
+					    for(var i = 0; i < vertices.length; i++) {
+					    	match = false;
+						    var serverInfo = serverDataMap[vertices[i].value];
+						    $.each(serverInfo,function(k, row) {
+						    	if(row.name == "ServerAddress" && row.value == address) {
+						    		match = true;
+						    		serialNo++;
+								}
+						    	else if(row.name == "HostName") {
+						    		hostName = row.value;
+						    	}
+						    	else if(row.name == "ServerRole") {
+						    		serverRole = row.value;
+						    	}
+						    	else if(row.name == "NumberOfProcessors") {
+						    		numOfProcessors = row.value;
+						    		if(numOfProcessors == "" || numOfProcessors == null) {
+						    			numOfProcessors = "N/A"
+						    		}
+						    	}
+						    	else if(row.name == "MemoryCapacity") {
+						    		memoryCapacity = row.value;
+						    	}
+						    });	
+						    if(match) {
+						    	$('.serverInfo').append('<tr><td>'+serialNo+'</td><td>'+hostName+'</td><td>'+serverRole+'</td><td>'+numOfProcessors+'</td><td>'+memoryCapacity+'</td></tr>');					
+						    }
+					    }
+					    $('.serverInfo').append('</tbody>');
+					    $("#dialogServerInfo").dialog("open");	
+				  });
+			}
+		}
+			
+			
+		function infra(container) {
+			// Checks if the browser is supported
+			if (!mxClient.isBrowserSupported())
+			{
+				// Displays an error message if the browser is not supported.
+				mxUtils.error('Browser is not supported!', 200, false);
+			}
+			else
+			{
+				// Disables the built-in context menu
+				mxEvent.disableContextMenu(container);
+				
+				// Creates the graph inside the given container
+				var graph = new mxGraph(container);
+
+				// Enables rubberband selection
+				new mxRubberband(graph);
+				
+				// Gets the default parent for inserting new cells. This
+				// is normally the first child of the root (ie. layer 0).
+				var parent = graph.getDefaultParent();
+				
+				graph.setPanning(true);
+				graph.panningHandler.useLeftButtonForPanning = true;
+				graph.setAllowDanglingEdges(false);
+				var prefix = 'shape=image;image=<%=contextPath%>/images/Server_small.jpg;';
+								
+				// Adds cells to the model in a single step
+				graph.getModel().beginUpdate();
+				var x = 0, y = 40;
+				try
+				{
+					var v1 = graph.insertVertex(parent, null, 'UAT', 20, 20, 200, 200,'whiteSpace=wrap;verticalAlign=top;fillColor=white;fontSize=15;fontColor=black;');
+					var v2 = graph.insertVertex(parent, null, 'PROD', 320, 20, 200, 200,'whiteSpace=wrap;verticalAlign=top;fillColor=white;fontSize=15;fontColor=black;');
+					var v3 = graph.insertVertex(parent, null, 'DEV', 20, 320, 200, 200,'whiteSpace=wrap;verticalAlign=top;fillColor=white;fontSize=15;fontColor=black;');
+					var v4 = graph.insertVertex(parent, null, 'DR', 320, 320, 200, 200,'whiteSpace=wrap;verticalAlign=top;fillColor=white;fontSize=15;fontColor=black;');
+					
+					for(var i = 0; i < 12; i++) {	
+						if(i%5 == 0 && i != 0) {
+							y += 105;
+							x = 0;
+						}
+						var v = graph.insertVertex(v1, null, 'ServerName'+i, x, y, 100, 80,prefix+'whiteSpace=wrap;verticalLabelPosition=bottom;verticalAlign=top');
+						x += 110;
+					}
+					
+				/*	var v11 = graph.insertVertex(v1, null, 'ServerName1', 0, 20, 100, 80,prefix+'whiteSpace=wrap;verticalLabelPosition=bottom;verticalAlign=top');
+					var v12 = graph.insertVertex(v1, null, 'ServerName2', 110, 20, 100, 80,prefix+'whiteSpace=wrap;verticalLabelPosition=bottom;verticalAlign=top');
+					var v13 = graph.insertVertex(v1, null, 'ServerName3', 0, 125, 100, 80,prefix+'whiteSpace=wrap;verticalLabelPosition=bottom;verticalAlign=top');
+					var v14 = graph.insertVertex(v1, null, 'ServerName4', 110, 125, 100, 80,prefix+'whiteSpace=wrap;verticalLabelPosition=bottom;verticalAlign=top');
+					
+					var v21 = graph.insertVertex(v2, null, 'ServerName1', 0, 20, 100, 80,prefix+'whiteSpace=wrap;verticalLabelPosition=bottom;verticalAlign=top');
+					var v22 = graph.insertVertex(v2, null, 'ServerName2', 110, 20, 100, 80,prefix+'whiteSpace=wrap;verticalLabelPosition=bottom;verticalAlign=top');
+					var v23 = graph.insertVertex(v2, null, 'ServerName3', 0, 125, 100, 80,prefix+'whiteSpace=wrap;verticalLabelPosition=bottom;verticalAlign=top');
+					var v24 = graph.insertVertex(v2, null, 'ServerName4', 110, 125, 100, 80,prefix+'whiteSpace=wrap;verticalLabelPosition=bottom;verticalAlign=top');
+					
+					var v31 = graph.insertVertex(v3, null, 'ServerName1', 0, 20, 100, 80,prefix+'whiteSpace=wrap;verticalLabelPosition=bottom;verticalAlign=top');
+					var v32 = graph.insertVertex(v3, null, 'ServerName2', 110, 20, 100, 80,prefix+'whiteSpace=wrap;verticalLabelPosition=bottom;verticalAlign=top');
+					var v33 = graph.insertVertex(v3, null, 'ServerName3', 0, 125, 100, 80,prefix+'whiteSpace=wrap;verticalLabelPosition=bottom;verticalAlign=top');
+					var v34 = graph.insertVertex(v3, null, 'ServerName4', 110, 125, 100, 80,prefix+'whiteSpace=wrap;verticalLabelPosition=bottom;verticalAlign=top');
+					
+					var v41 = graph.insertVertex(v4, null, 'ServerName1', 0, 20, 100, 80,prefix+'whiteSpace=wrap;verticalLabelPosition=bottom;verticalAlign=top');
+					var v42 = graph.insertVertex(v4, null, 'ServerName2', 110, 20, 100, 80,prefix+'whiteSpace=wrap;verticalLabelPosition=bottom;verticalAlign=top');
+					var v43 = graph.insertVertex(v4, null, 'ServerName3', 0, 125, 100, 80,prefix+'whiteSpace=wrap;verticalLabelPosition=bottom;verticalAlign=top');
+					var v44 = graph.insertVertex(v4, null, 'ServerName4', 110, 125, 100, 80,prefix+'whiteSpace=wrap;verticalLabelPosition=bottom;verticalAlign=top');
+				*/
+					
+					var v1Geo = graph.getModel().getGeometry(v1);
+					v1Geo = v1Geo.clone();
+					var v1Height = v1Geo.height;
+					var v1Width = v1Geo.width;
+					v1Geo.height = v1Height + 20;
+					graph.getModel().setGeometry(v1,v1Geo);
+					
+					var v2Geo = graph.getModel().getGeometry(v2);
+					v2Geo = v2Geo.clone();
+					var v2Height = v2Geo.height;
+					var v2Width = v2Geo.width;
+					v2Geo.height += 20;
+					v2Geo.x += (v1Geo.width - 200);
+					v2Geo.height = v1Geo.height;
+					v2Geo.width = v1Geo.width;
+					graph.getModel().setGeometry(v2,v2Geo);
+					
+					var v3Geo = graph.getModel().getGeometry(v3);
+					v3Geo = v3Geo.clone();
+					var v3Height = v3Geo.height;
+					var v3Width = v3Geo.width;
+					v3Geo.height += 20;
+					v3Geo.y += (v1Geo.height - 200);
+					v3Geo.height = v1Geo.height;
+					v3Geo.width = v1Geo.width;
+					graph.getModel().setGeometry(v3,v3Geo);
+					
+					var v4Geo = graph.getModel().getGeometry(v4);
+					v4Geo = v4Geo.clone();
+					v4Geo.height += 20;
+					v4Geo.x += (v1Geo.width - 200);
+					v4Geo.y += (v1Geo.height - 200);
+					v4Geo.height = v1Geo.height;
+					v4Geo.width = v1Geo.width;
+					graph.getModel().setGeometry(v4,v4Geo);
+					
+					graph.addListener(mxEvent.CLICK, function(source, evt) {
+						var cell = evt.getProperty('cell');	
+						if (cell != null) {
+							alert(cell.value);
+						}
+					});
+					
+					$('#zoomIn').click(function() {
+						graph.zoomIn();
+					});
+					$('#zoomOut').click(function() {
+						graph.zoomOut();
+					});	
+					
+				}
+				finally
+				{
+					// Updates the display
+					graph.getModel().endUpdate();
+				}
+			}	
+		}
+	
 		
 		function load(graph, cell, x, y, vertices) {
 			//if (graph.getModel().isVertex(cell)) {										
@@ -2739,6 +4380,26 @@
 			});
 		}
 		
+		function eventsForServerInfo() {
+			$("#dialogServerInfo").dialog({
+				autoOpen: false,
+				modal:true,
+				width: 500,
+				height:500,
+				close: function () {
+					$(this).dialog('close');
+				},
+				buttons: [
+					{
+						text: "Close",
+						click: function() {
+							$(this).dialog('close');
+						}
+					}
+				]
+			});
+		}
+		
 		function eventsForProcessInfo() {
 			$("#dialogProcessInfo").dialog({
 				autoOpen: false,
@@ -2781,6 +4442,10 @@
 		function unBlockSection(blockId) {
 			$(blockId).unblock();
 		}
+		
+		
+		
+		
 	</script>
 </head>
 <body>
@@ -2797,18 +4462,13 @@
 		</table>
 	</div>
 	<div id="header">
-		<div class="wrap zoom">
-				<button id="zoomIn">+</button>
-				<button id="zoomOut">-</button>
-		</div>
 		<div class="wrap">
-			<label for="applications">Choose Search Type: </label>
-	        <select name="type" id="type"></select>
-	        <label for="search">Search: </label>
-	        <input id="search">		    
-	        <label for="applications">Choose Graph Type: </label>
+		 	<span class="bold">Select view: </span>
 	        <select name="graphType" id="graphType"></select>
-	        <button id="submit">Submit</button>	  			    
+			<span class="bold">And Search On: </span>
+	        <select name="type" id="type"></select>
+	        <input id="search">		    
+	        <button id="submit">Go</button>	  			    
 	    </div>	    
 	   <!--  <div class="businessProcess">
 	    	<label for="l1process">L1 Business Process: </label>
@@ -2823,14 +4483,31 @@
 	<hr>
 	
 	<div id="wrapper">
-		<div id="filterToggle"><p>
-					<a href="#" id="create-environment-link" class="dialog-link ui-state-default ui-corner-all">
-						<span class="ui-icon ui-icon-newwin"></span>Toggle Filter
-					</a>
-				</p></div>
+		<div id="filterToggle">
+			<p>
+				<a href="#" id="create-environment-link" class="dialog-link ui-state-default ui-corner-all">
+					<span class="ui-icon ui-icon-newwin"></span>Toggle Filter
+				</a>
+			</p>
+			<button id="zoomIn">+</button>
+			<button id="zoomOut">-</button>
+		</div>
 		<div id="filter">
-			<h1>Filter</h1>
-			<button id="reset">Reset</button>	
+			<div class="filter-title">Filter Results</div>
+	<!--  
+			<div class="filter-section-header section applied">Applied Filters</div>
+			<div class="selected-filter-section section">
+				<ul>
+					<li class="filter-item">
+						<span class="remove">X</span>
+						<span class="filter-item-name">Resource Type: </span>
+						<span class="filter-item-label">DB Instance</span>
+					</li>
+				</ul>
+			</div>
+			<div class=filter-section-footer></div> 
+	-->		
+				
 		</div>
 	<div id="graphContainer" style="background: url('<%=contextPath%>/images/grid.gif');">
 		<img src='<%=contextPath%>/images/loading_icon.gif' style="display: none;" id="loading_image">
@@ -2948,6 +4625,9 @@
 			</tr>
 		</table>
 	</div>	
+	<div id="dialogServerInfo" title="Server Data">
+		<table class="tftable serverInfo" bgcolor="#404040"></table>
+	</div>
 	<div id="dialogProcessInfo" title="Process Information">
 		<table class="tftable" bgcolor="#404040">
 			<tr>
@@ -2968,7 +4648,6 @@
 			</tr>
 		</table>
 	</div>
-	
 	<div id="dialogTransportInfo" title="Transport Information">
 		<table class="tftable" bgcolor="#404040">
 			<tr>
